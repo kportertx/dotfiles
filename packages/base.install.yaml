@@ -1,0 +1,16 @@
+- clean:
+    - '~'
+- link:
+    ~/bin:
+      path: 'home/bin/'
+    ~/.oh-my-zsh:
+      path: 'home/oh-my-zsh'
+    ~/.zshrc:
+      path: 'home/zshrc'
+- shell:
+    - command: |
+        sudo apt install -y \
+        eclipse-cdt \
+        i3 \
+        zsh
+      stdout: true
