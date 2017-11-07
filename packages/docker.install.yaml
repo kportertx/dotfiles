@@ -1,5 +1,4 @@
-- clean:
-    - '~'
+- clean: []
 - link: {}
 - shell:
     - command: |

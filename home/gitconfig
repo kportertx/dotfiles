@@ -1,0 +1,28 @@
+[user]
+	name = Kevin Porter
+	email = kporter@aerospike.com
+[alias]
+	tree = log --graph --decorate --pretty=oneline --abbrev-commit
+	stats = log --stat --oneline
+
+	co = checkout
+	cob = checkout -b
+
+	pr = "!pr() { git fetch $1 pull/$2/head:pull_request_$2; git checkout pull_request_$2; }; pr"
+
+	ri = rebase -i
+	rc = rebase --continue
+[grep]
+	lineNumber = true
+[color "diff"]
+	whitespace = red reverse
+[pull]
+	rebase = true
+[push]
+	default = current
+[core]
+	excludesfile = ~/.gitignore
+[merge]
+	tool = meld
+[branch]
+	autoSetupMerge = always

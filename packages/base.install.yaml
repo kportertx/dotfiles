@@ -1,16 +1,22 @@
 - clean:
     - '~'
 - link:
-    ~/bin:
-      path: 'home/bin/'
-    ~/.oh-my-zsh:
-      path: 'home/oh-my-zsh'
-    ~/.zshrc:
-      path: 'home/zshrc'
+    ~/bin: 'home/bin/'
+    ~/.config/i3/config:
+      create: true
+      path: 'home/config/i3/config'
+    ~/.config/lxterminal/lxterminal.conf:
+      create: true
+      path: 'home/config/lxterminal/lxterminal.conf'
+    ~/.gitconfig: 'home/gitconfig'
+    ~/.gitignore: 'home/gitignore'
+    ~/.oh-my-zsh: 'home/oh-my-zsh'
+    ~/.tmux.conf: 'home/tmux.conf'
+    ~/.zshrc: 'home/zshrc'
 - shell:
     - command: |
         sudo apt install -y \
-        eclipse-cdt \
-        i3 \
+        lxterminal \
+        tmux \
         zsh
       stdout: true

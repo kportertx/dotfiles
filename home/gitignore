@@ -1,0 +1,6 @@
+.settings
+*~
+.metadata
+my*.yaml
+cscope.out
+.todo.org

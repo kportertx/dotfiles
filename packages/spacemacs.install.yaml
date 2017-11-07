@@ -1,8 +1,6 @@
 - clean:
     - '~'
 - link:
-    ~/.emacs.d:
-      path: 'home/spacemacs.d'
-    ~/.spacemacs:
-      path: 'home/spacemacs'
+    ~/.emacs.d: 'home/spacemacs.d'
+    ~/.spacemacs: 'home/spacemacs'
 - shell: []
