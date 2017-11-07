@@ -3,4 +3,17 @@
 - link:
     ~/.emacs.d: 'home/spacemacs.d'
     ~/.spacemacs: 'home/spacemacs'
-- shell: []
+- shell:
+    # Default fonts
+    - stdout: true
+      command: |
+        sudo apt install -y wget
+    - stdout: true
+      command: |
+        NNG_URL="https://github.com/google/fonts/raw/master/ofl/nanumgothic/NanumGothic-Regular.ttf" \
+        && SCP_URL="https://github.com/adobe-fonts/source-code-pro/archive/2.030R-ro/1.050R-it.tar.gz" \
+        && sudo mkdir -p /usr/local/share/fonts \
+        && sudo wget -qO- "${SCP_URL}" | sudo tar xz -C /usr/local/share/fonts \
+        && sudo wget -q "${NNG_URL}" -P /usr/local/share/fonts \
+        && (sudo fc-cache -fv || true) \
+        && (sudo rm -rf /tmp/* /var/lib/apt/lists/* /root/.cache/* || true)
