@@ -17,3 +17,11 @@
         && sudo wget -q "${NNG_URL}" -P /usr/local/share/fonts \
         && (sudo fc-cache -fv || true) \
         && (sudo rm -rf /tmp/* /var/lib/apt/lists/* /root/.cache/* || true)
+    - command: |
+        sudo apt install -y \
+        cscope
+      stdout: true
+    - command : |
+        sudo pip install \
+        pycscope \
+        isort
