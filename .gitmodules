@@ -7,6 +7,6 @@
 [submodule "home/spacemacs"]
 	path = home/spacemacs.d
 	url = git@github.com:syl20bnr/spacemacs.git
-[submodule "home/oh-my-zsh"]
-	path = home/oh-my-zsh
-	url = git://github.com/robbyrussell/oh-my-zsh.git
+[submodule "home/zplug"]
+	path = home/zplug
+	url = https://github.com/zplug/zplug

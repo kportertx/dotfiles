@@ -1,3 +1,11 @@
+- shell:
+    - command: |
+        sudo apt install -y \
+        lxterminal \
+        lilyterm \
+        tmux \
+        zsh
+      stdout: true
 - clean:
     - '~'
 - link:
@@ -8,15 +16,11 @@
     ~/.config/lxterminal/lxterminal.conf:
       create: true
       path: 'home/config/lxterminal/lxterminal.conf'
+    ~/.config/lilyterm/default.conf:
+      create: true
+      path: 'home/config/lilyterm/default.conf'
     ~/.gitconfig: 'home/gitconfig'
     ~/.gitignore: 'home/gitignore'
-    ~/.oh-my-zsh: 'home/oh-my-zsh'
     ~/.tmux.conf: 'home/tmux.conf'
-    ~/.zshrc: 'home/zshrc'
-- shell:
-    - command: |
-        sudo apt install -y \
-        lxterminal \
-        tmux \
-        zsh
-      stdout: true
+    ~/.zplug: 'home/zplug'
+    ~/.zshrc: 'home/zshrc.zplug'
