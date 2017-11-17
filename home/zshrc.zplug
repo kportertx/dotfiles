@@ -101,9 +101,8 @@ zplug 'zsh-users/zsh-syntax-highlighting', defer:3
 zplug load
 
 # Ensure plugins are installed.
-if ! zplug check ; then
-    zplug install
-fi
+zplug check || zplug install
+
 
 #
 # Suggestions
@@ -137,3 +136,5 @@ else
 fi
 
 alias e=$EDITOR
+
+alias ls="ls --color=auto"
