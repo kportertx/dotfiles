@@ -1,6 +1,26 @@
-.settings
-*~
-.metadata
-my*.yaml
+# C
 cscope.out
-.todo.org
+
+# Eclipse
+.project
+
+# Emacs
+.\#*
+*~
+.meghanada
+todo.org
+
+# General
+*.log
+target/
+
+# Java
+.classpath
+.metadata
+.settings
+
+# Python
+*.pyc
+
+# QA
+my*.yaml

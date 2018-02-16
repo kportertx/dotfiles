@@ -1,9 +1,11 @@
 - shell:
+    # gawk needed by zplug.
     - command: |
         sudo apt install -y \
         lxterminal \
         lilyterm \
         tmux \
+        gawk \
         zsh
       stdout: true
 - clean:
@@ -19,6 +21,9 @@
     ~/.config/lilyterm/default.conf:
       create: true
       path: 'home/config/lilyterm/default.conf'
+    ~/.config/gtk-3.0/settings.ini:
+      create: true
+      path: 'home/config/gtk-3.0/settings.ini'
     ~/.gitconfig: 'home/gitconfig'
     ~/.gitignore: 'home/gitignore'
     ~/.tmux.conf: 'home/tmux.conf'

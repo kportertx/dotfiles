@@ -85,7 +85,6 @@ zstyle ':completion:*:*:kill:*' insert-ids single
 
 source ~/.zplug/init.zsh
 #zplug "themes/candy", from:oh-my-zsh
-#zplug "themes/agnoster", from:oh-my-zsh
 zplug "bhilburn/powerlevel9k", use:powerlevel9k.zsh-theme
 
 zplug "plugins/colored-man-pages", from:oh-my-zsh
@@ -138,3 +137,10 @@ fi
 alias e=$EDITOR
 
 alias ls="ls --color=auto"
+lias l="ls"
+alias ll="ls -lah"
+
+# Docker
+alias docker.killall="docker rm \$(docker stop \$(docker ps -aq))"
+alias docker.cleanup="docker rmi \$(docker images -q -f dangling=true)"
+alias docker.purge="docker rmi \$(docker images -q)"
