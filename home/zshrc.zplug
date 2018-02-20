@@ -137,7 +137,7 @@ fi
 alias e=$EDITOR
 
 alias ls="ls --color=auto"
-lias l="ls"
+alias l="ls"
 alias ll="ls -lah"
 
 # Docker
