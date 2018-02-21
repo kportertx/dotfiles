@@ -2,10 +2,11 @@
     # gawk needed by zplug.
     - command: |
         sudo apt install -y \
+        i3 \
+        gawk \
         lxterminal \
         lilyterm \
         tmux \
-        gawk \
         zsh
       stdout: true
 - clean:
