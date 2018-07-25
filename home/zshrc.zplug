@@ -140,7 +140,17 @@ alias ls="ls --color=auto"
 alias l="ls"
 alias ll="ls -lah"
 
-# Docker
+# Helpers
+## Docker
 alias docker.killall="docker rm \$(docker stop \$(docker ps -aq))"
 alias docker.cleanup="docker rmi \$(docker images -q -f dangling=true)"
 alias docker.purge="docker rmi \$(docker images -q)"
+
+## Network
+alias network.test="ping -c1 8.8.8.8"
+alias network.test.dns="ping -c1 www.bing.com"
+alias network.restart="sudo systemctl restart networking.service"
+export PATH="$HOME/.pyenv/bin:$PATH"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)"
+

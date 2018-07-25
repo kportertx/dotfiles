@@ -1,6 +1,7 @@
 [alias]
 	tree = log --graph --decorate --pretty=oneline --abbrev-commit
 	stats = log --stat --oneline
+  amend = commit --amend --date="now"
 
 	co = checkout
 	cob = checkout -b
