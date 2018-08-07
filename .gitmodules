@@ -10,3 +10,6 @@
 [submodule "home/zplug"]
 	path = home/zplug
 	url = https://github.com/zplug/zplug
+[submodule "home/pyenv"]
+	path = home/pyenv
+	url = https://github.com/pyenv/pyenv.git

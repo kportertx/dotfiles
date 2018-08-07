@@ -150,7 +150,8 @@ alias docker.purge="docker rmi \$(docker images -q)"
 alias network.test="ping -c1 8.8.8.8"
 alias network.test.dns="ping -c1 www.bing.com"
 alias network.restart="sudo systemctl restart networking.service"
-export PATH="$HOME/.pyenv/bin:$PATH"
-eval "$(pyenv init -)"
-eval "$(pyenv virtualenv-init -)"
 
+# PyEnv
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
