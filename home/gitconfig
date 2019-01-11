@@ -13,12 +13,18 @@
 	gra = log --graph --format=compact --all # graph all
 	gral = log --graph --format=line --all # graph all line
 	grad = log --graph --format=detail --all # graph all in detail
-	update-submodules = submodule update --init --recursive
+	submodules-update = "!f() { git submodule sync --recursive && git submodule update --init --recursive; }; f"
 
 	pr = "!pr() { git fetch $1 pull/$2/head:pull_request_$2; git checkout pull_request_$2; }; pr"
 
 	ri = rebase -i
 	rc = rebase --continue
+
+	cherrypick = cherry-pick
+	cherry = cherry-pick
+	cp = cherry-pick
+
+	git = !exec git
 
 [branch]
 	autoSetupMerge = always
@@ -54,14 +60,22 @@
 
 [push]
 	default = current
+	followTags = true
+
+[submodule]
+	fetchJobs = 4
+
 [user]
 	name = Kevin Porter
 	email = kporter@aerospike.com
+
 [magithub]
 	online = false
+
 [magithub "status"]
 	includeStatusHeader = false
 	includePullRequestsSection = false
 	includeIssuesSection = false
+
 [include]
   path = ~/.gitconfig_github

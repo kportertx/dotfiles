@@ -1,5 +1,8 @@
 zmodload zsh/zprof
 
+autoload -U select-word-style
+select-word-style bash
+
 #
 # History
 #
@@ -141,6 +144,13 @@ alias e=$EDITOR
 alias ls="ls --color=auto"
 alias l="k"
 alias ll="k -ah"
+
+# Navigation
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias .....="cd ../../../.."
+alias -- -="cd -"
 
 # Helpers
 ## Docker
