@@ -6,7 +6,6 @@
         i3 \
         gawk \
         lxterminal \
-        lilyterm \
         tmux \
         zsh
       stdout: true
@@ -20,9 +19,6 @@
     ~/.config/lxterminal/lxterminal.conf:
       create: true
       path: 'home/config/lxterminal/lxterminal.conf'
-    ~/.config/lilyterm/default.conf:
-      create: true
-      path: 'home/config/lilyterm/default.conf'
     ~/.config/gtk-3.0/settings.ini:
       create: true
       path: 'home/config/gtk-3.0/settings.ini'
