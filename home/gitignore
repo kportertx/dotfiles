@@ -4,11 +4,15 @@ cscope.out
 # Eclipse
 .project
 
+# Netbeans
+nbproject
+
 # Emacs
 .\#*
 *~
 .meghanada
 todo.org
+.mypy_cache
 
 # General
 *.log
