@@ -1,0 +1,21 @@
+- clean: []
+- link: {}
+- shell:
+    - command: |
+        sudo apt install -y \
+        apt-transport-https \
+        ca-certificates \
+        curl \
+        gnupg \
+        software-properties-common
+      stdout: true
+    - command: 'curl -fall https://download.docker.com/linux/debian/gpg | sudo apt-key add -'
+      stdout: true
+    - command: 'sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian stretch stable"'
+      stdout: true
+    - command: 'sudo apt update'
+      stdout: true
+    - command: 'sudo apt install -y docker docker-compose'
+      stdout: true
+    - command: 'sudo systemctl start docker'
+      stdout: true

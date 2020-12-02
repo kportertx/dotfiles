@@ -1,0 +1,19 @@
+- shell:
+    # gawk needed by zplug.
+    - command: |
+        sudo apt install -y \
+        curl \
+        gawk \
+        python-is-python3 \
+        tmux \
+        zsh
+      stdout: true
+- clean:
+    - '~'
+- link:
+    ~/.gitconfig: 'system/wsl/home/gitconfig'
+    ~/.gitignore: 'system/wsl/home/gitignore'
+    ~/.pyenv: 'system/wsl/home/pyenv'
+    ~/.tmux.conf: 'system/wsl/home/tmux.conf'
+    ~/.zplug: 'system/wsl/home/zplug'
+    ~/.zshrc: 'system/wsl/home/zshrc.zplug'

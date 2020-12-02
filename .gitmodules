@@ -2,14 +2,23 @@
 	path = dotbot
 	url = https://github.com/anishathalye/dotbot
 [submodule "packages/emacs"]
-	path = packages/emacs
+	path = system/linux/packages/emacs
 	url = git@github.com:emacs-mirror/emacs.git
 [submodule "home/spacemacs"]
-	path = home/spacemacs.d
+	path = system/linux/home/spacemacs.d
 	url = git@github.com:syl20bnr/spacemacs.git
 [submodule "home/zplug"]
-	path = home/zplug
+	path = system/linux/home/zplug
 	url = https://github.com/zplug/zplug
 [submodule "home/pyenv"]
-	path = home/pyenv
+	path = system/linux/home/pyenv
 	url = https://github.com/pyenv/pyenv.git
+[submodule "system/lsw/home/pyenv"]
+	path = system/wsl/home/pyenv
+	url = https://github.com/pyenv/pyenv.git
+[submodule "system/lsw/home/zplug"]
+	path = system/wsl/home/zplug
+	url = https://github.com/zplug/zplug
+[submodule "system/lsw/home/spacemacs.d"]
+	path = system/wsl/home/spacemacs.d
+	url = git@github.com:syl20bnr/spacemacs.git
