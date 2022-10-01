@@ -1,0 +1,25 @@
+# Reset env variables
+source /etc/environment
+
+# If not running interactively, don't do anything
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+
+# load additional scirpts
+for script in ~/.config/agnosticrc/agnosticrc.d/*.sh
+do
+    source ${script}
+done
+
+# load custom settings
+local_scripts_path=~/.local/agnosticrc/agnosticrc.d
+
+if [[ -d "$local_scripts_path" ]]
+then
+  for script in $(find ${local_scripts_path}/ -maxdepth 1 -type f -name "*.sh")
+  do
+    source ${script}
+  done
+fi

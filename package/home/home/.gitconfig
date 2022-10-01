@@ -1,0 +1,70 @@
+[alias]
+	tree = log --graph --decorate --pretty=oneline --abbrev-commit
+	stats = log --stat --oneline
+	amend = commit --amend --date="now"
+
+	co = checkout
+	cob = checkout -b
+	f = fetch --tags --prune
+	fa = fetch --all --tags --prune
+	gr = log --graph --format=compact # graph
+	grl = log --graph --format=line # graph line
+	grd = log --graph --format=detail # graph detail
+	gra = log --graph --format=compact --all # graph all
+	gral = log --graph --format=line --all # graph all line
+	grad = log --graph --format=detail --all # graph all in detail
+	submodules-update = "!f() { git submodule sync --recursive && git submodule update --init --recursive; }; f"
+
+	pr = "!pr() { git fetch $1 pull/$2/head:pull_request_$2; git checkout pull_request_$2; }; pr"
+
+	ri = rebase -i
+	rc = rebase --continue
+
+	cherrypick = cherry-pick
+
+	git = !exec git
+
+[branch]
+	autoSetupMerge = always
+
+[color]
+	ui = auto
+
+[color "grep"]
+	match = cyan bold
+	selected = blue
+	context = normal
+	filename = magenta
+	linenumber = green
+	separator = yellow
+	function = blue
+
+[color "diff"]
+	whitespace = red reverse
+
+[core]
+	excludesfile = ~/.gitignore
+
+[grep]
+	lineNumber = true
+
+[merge]
+	tool = meld
+
+[pretty]
+	line = "%C(auto)%h%d %s %C(yellow)by %C(blue)%an %C(green)%ar"
+	compact = "%C(auto)%h %s %C(green)%ar%n %C(auto)%d%n"
+	detail = "%C(auto)%h %s%n  %C(yellow)by %C(blue)%an %C(magenta)<%ae> [%G?] %C(green)%ar%n %C(auto)%d%n"
+
+[push]
+	default = current
+	followTags = true
+
+[submodule]
+	fetchJobs = 4
+
+[user]
+	name = Kevin Porter
+	email = kporter@aerospike.com
+[core]
+	editor = emacs

@@ -1,0 +1,27 @@
+# C
+cscope.out
+
+# Eclipse
+.project
+
+# Netbeans
+nbproject
+
+# Emacs
+.\#*
+*~
+
+# General
+*.log
+target/
+
+# Java
+.classpath
+.metadata
+.settings
+
+# Python
+*.pyc
+
+# QA
+my*.yaml

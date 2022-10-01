@@ -1,0 +1,47 @@
+- clean:
+    ~/:
+    ~/.config/agnosticrc:
+- create:
+    ~/.config/agnosticrc/agnosticrc.d:
+      mode: 0770
+- link:
+    ~/.bashrc:
+      path: package/agnosticrc/home/.bashrc
+      create: true
+      relink: true
+      force: true
+    ~/.zshrc:
+      path: package/agnosticrc/home/.zshrc
+      create: true
+      relink: true
+      force: true
+    ~/.config/agnosticrc/agnosticrc:
+      path: package/agnosticrc/home/.config/agnosticrc/agnosticrc
+      create: true
+      relink: true
+      force: true
+    ~/.config/agnosticrc/agnosticrc.d/00_env.sh:
+      path: package/agnosticrc/home/.config/agnosticrc/agnosticrc.d/00_env.sh
+      create: true
+      relink: true
+      force: true
+    ~/.config/agnosticrc/agnosticrc.d/01_alias.sh:
+      path: package/agnosticrc/home/.config/agnosticrc/agnosticrc.d/01_alias.sh
+      create: true
+      relink: true
+      force: true
+    ~/.config/agnosticrc/agnosticrc.d/01_completion.sh:
+      path: package/agnosticrc/home/.config/agnosticrc/agnosticrc.d/01_completion.sh
+      create: true
+      relink: true
+      force: true
+    ~/.config/agnosticrc/agnosticrc.d/01_opts.sh:
+      path: package/agnosticrc/home/.config/agnosticrc/agnosticrc.d/01_opts.sh
+      create: true
+      relink: true
+      force: true
+    ~/.config/agnosticrc/agnosticrc.d/01_path.sh:
+      path: package/agnosticrc/home/.config/agnosticrc/agnosticrc.d/01_path.sh
+      create: true
+      relink: true
+      force: true

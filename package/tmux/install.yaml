@@ -1,0 +1,14 @@
+- clean:
+    ~/:
+- link:
+    ~/.tmux.conf:
+      path: package/tmux/home/.tmux.conf
+      create: true
+      relink: true
+      force: true
+- shell:
+    - description: install prerequisite packages
+      command: |
+        sudo apt install -y tmux
+      stdout: true
+      stderr: true

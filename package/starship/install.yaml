@@ -1,0 +1,47 @@
+- clean:
+    ~/.config/agnosticrc/agnosticrc.d:
+- link:
+    ~/.config/agnosticrc/agnosticrc.d/02_starship.sh:
+      path: package/starship/home/.config/agnosticrc/agnosticrc.d/02_starship.sh
+      create: true
+      relink: true
+      force: true
+    ~/.config/starship.toml:
+      path: package/starship/home/.config/starship.toml
+      create: true
+      relink: true
+      force: true
+- shell:
+    - description: install prerequisite packages
+      command: |
+        sudo apt install -y wget unzip curl
+      stdout: true
+      stderr: true
+    - description: install font
+      command: |
+        font=UbuntuMono &&
+        mkdir -p ~/.fonts/ &&
+        wget https://github.com/ryanoasis/nerd-fonts/releases/download/v2.1.0/$font.zip -O ~/.fonts/$font.zip
+        unzip -ud ~/.fonts/ ~/.fonts/$font.zip &&
+        rm ~/.fonts/$font.zip
+      stdout: true
+      stderr: true
+    # - description: configure gnome-terminal font
+    #   command: |
+    #     font=UbuntuMono &&
+    #     dtprofile=:b1dcc9dd-5262-4d8d-a863-c897e6d979a9 &&
+    #     dtpath=/org/gnome/terminal/legacy/profiles: &&
+    #     dpp=$dtpath/$dtprofile &&
+    #     dconf write $dpp/audible-bell false &&
+    #     dconf write $dpp/font "'UbuntuMono Nerd Font 12'" &&
+    #     dconf write $dpp/use-system-font false &&
+    #     dconf write $dpp/visible-name "'Default'" &&
+    #     dconf write $dtpath/default "'$dtprofile'"
+    #   stdout: true
+    #   stderr: true
+    - description: install starship
+      command: |
+        sh -c "$(curl -fsSL https://starship.rs/install.sh)"
+      stdout: true
+      stderr: true
+      stdin: true
