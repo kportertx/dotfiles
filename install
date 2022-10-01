@@ -9,6 +9,13 @@ then
 fi
 
 CONFIG="$1"
+
+if [[ -d "${CONFIG}" ]]; then
+  CONFIG+="/install.yaml"
+fi
+
+echo $CONFIG
+
 DOTBOT_DIR="dotbot"
 
 DOTBOT_BIN="bin/dotbot"

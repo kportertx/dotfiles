@@ -1,58 +1,139 @@
-Dotfiles Template
-=================
+Packages
+========
+Dotfile packages reside in the `package` folder. To install a package run:
 
-This is a template repository for bootstrapping your dotfiles with [Dotbot][dotbot].
+``` sh
+./install package/<package-name>
+```
 
-To get started, you can [create a new repository from this template][template]
-(or you can [fork][fork] this repository, if you prefer). You can probably
-delete this README and rename your version to something like just `dotfiles`.
+agnosticrc/base
+---------------
+The **agnosticrc/base** package is a common set of scripts that are agnostic of
+the shell of the user. At this time, agnotistrc only supports bash and zsh.
 
-In general, you should be using symbolic links for everything, and using git
-submodules whenever possible.
+Local rc scripts may be added to `${HOME}/.local/agnosticrc/agnosticrc.d/`.
 
-To keep submodules at their proper versions, you could include something like
-`git submodule update --init --recursive` in your `install.conf.yaml`.
+The **agnosticrc/base** package creates the following files:
+``` text
+$HOME/
+├── .config/
+│   └── agnosticrc/
+│       ├── agnosticrc.d/
+│       │   ├── 00_env.sh
+│       │   ├── 01_alias.sh
+│       │   ├── 01_completion.sh
+│       │   ├── 01_opts.sh
+│       │   └── 01_path.sh
+│       └── agnosticrc
+├── .local/
+│   └── agnosticrc/
+│       └── agnosticrc.d/
+│           └── .gitkeep
+├── .bashrc
+└── .zshrc
+```
 
-To upgrade your submodules to their latest versions, you could periodically run
-`git submodule update --init --remote`.
+**To install run:**
+``` sh
+/.install package/agnosticrc/base
+```
 
-Inspiration
------------
+agnosticrc/default_emacs
+------------------------
+The **agnosticrc/default_emacs** package sets the EDITOR and VISUAL environment
+variables to `emacs`.
 
-If you're looking for inspiration for how to structure your dotfiles or what
-kinds of things you can include, you could take a look at some repos using
-Dotbot.
+The **agnosticrc/default_emacs** package creates the following files:
+``` text
+$HOME/
+└── .config/
+    └── agnosticrc/
+        └── agnosticrc.d/
+            └── 05_editor.sh
+```
 
-* [anishathalye's dotfiles][anishathalye_dotfiles]
-* [csivanich's dotfiles][csivanich_dotfiles]
-* [m45t3r's dotfiles][m45t3r_dotfiles]
-* [alexwh's dotfiles][alexwh_dotfiles]
-* [azd325's dotfiles][azd325_dotfiles]
-* [wazery's dotfiles][wazery_dotfiles]
-* [thirtythreeforty's dotfiles][thirtythreeforty_dotfiles]
+**To install run:**
+``` sh
+/.install package/agnosticrc/default_emacs
+```
 
-And there are about [700 more here][dotbot-users].
+agnosticrc/default_vim
+----------------------
+The **agnosticrc/default_vim** package creates the following files:
+``` text
+$HOME/
+└── .config/
+    └── agnosticrc/
+        └── agnosticrc.d/
+            └── 05_editor.sh
+```
 
-If you're using Dotbot and you'd like to include a link to your dotfiles here
-as an inspiration to others, please submit a pull request.
+**To install run:**
+``` sh
+/.install package/agnosticrc/defunct_vim
+```
 
-License
+agnosticrc/starship
+-------------------
+The **agnosticrc/starship** package installs the
+[starship cross shell prompt](https://starship.rs). 
+
+The **agnosticrc/starship** package creates the following files:
+``` text
+$HOME/
+└── .config/
+    ├── agnosticrc/
+    │   └── agnosticrc.d/
+    │       └── 02_starship.sh
+    └── starship.toml
+```
+
+**To install run:**
+``` sh
+/.install package/agnosticrc/starship
+```
+
+kporter
 -------
+The **kporter*** package configures misc personal dotfiles. 
 
-This software is hereby released into the public domain. That means you can do
-whatever you want with it without restriction. See `LICENSE.md` for details.
+The **kporter** package creates the following files:
+``` text
+$HOME/
+├── .config/
+│   └── i3/
+│       └── config
+├── .doom.d/
+│   ├── config.el
+│   ├── init.el
+│   └── packages.el
+├── .gitconfig
+└── .gitignore
+```
 
-That being said, I would appreciate it if you could maintain a link back to
-Dotbot (or this repository) to help other people discover Dotbot.
+**To install run:**
+``` sh
+/.install package/kporter
+```
 
+tmux
+----
+The **tmux** package configures tmux.
+
+The **tmux** package creates the following files:
+``` text
+$HOME/
+└── .tmux.conf
+
+```
+
+**To install run:**
+``` sh
+/.install package/tmux
+```
+
+Acknowledgements
+================
 [dotbot]: https://github.com/anishathalye/dotbot
-[fork]: https://github.com/anishathalye/dotfiles_template/fork
-[template]: https://github.com/anishathalye/dotfiles_template/generate
-[anishathalye_dotfiles]: https://github.com/anishathalye/dotfiles
-[csivanich_dotfiles]: https://github.com/csivanich/dotfiles
-[m45t3r_dotfiles]: https://github.com/m45t3r/dotfiles
-[alexwh_dotfiles]: https://github.com/alexwh/dotfiles
-[azd325_dotfiles]: https://github.com/Azd325/dotfiles
-[wazery_dotfiles]: https://github.com/wazery/dotfiles
-[thirtythreeforty_dotfiles]: https://github.com/thirtythreeforty/dotfiles
-[dotbot-users]: https://github.com/anishathalye/dotbot/wiki/Users
+[template]: https://github.com/anishathalye/dotfiles_template
+

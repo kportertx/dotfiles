@@ -2,22 +2,22 @@
     ~/:
 - link:
     ~/.gitconfig:
-      path: package/home/home/.gitconfig
+      path: package/kporter/home/.gitconfig
       create: true
       relink: true
       force: true
     ~/.gitignore:
-      path: package/home/home/.gitignore
+      path: package/kporter/home/.gitignore
       create: true
       relink: true
       force: true
     ~/.doom.d:
-      path: package/home/home/.doom.d
+      path: package/kporter/home/.doom.d
       create: true
       relink: true
       force: true
     ~/.config/i3/config:
-      path: package/home/home/.config/i3/config
+      path: package/kporter/home/.config/i3/config
       create: true
       relink: true
       force: true

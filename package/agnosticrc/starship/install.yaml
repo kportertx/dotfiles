@@ -2,12 +2,12 @@
     ~/.config/agnosticrc/agnosticrc.d:
 - link:
     ~/.config/agnosticrc/agnosticrc.d/02_starship.sh:
-      path: package/starship/home/.config/agnosticrc/agnosticrc.d/02_starship.sh
+      path: package/agnosticrc/starship/home/.config/agnosticrc/agnosticrc.d/02_starship.sh
       create: true
       relink: true
       force: true
     ~/.config/starship.toml:
-      path: package/starship/home/.config/starship.toml
+      path: package/agnosticrc/starship/home/.config/starship.toml
       create: true
       relink: true
       force: true

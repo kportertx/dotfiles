@@ -2,7 +2,7 @@
     ~/.config/agnosticrc/agnosticrc.d:
 - link:
     ~/.config/agnosticrc/agnosticrc.d/05_editor.sh:
-      path: package/default_editor/home/.config/agnosticrc/agnosticrc.d/05_editor_emacs.sh
+      path: package/agnosticrc/default_vim/home/.config/agnosticrc/agnosticrc.d/05_editor.sh
       create: true
       relink: true
       force: true
