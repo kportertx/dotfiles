@@ -1,6 +1,11 @@
 - clean:
     ~/:
 - link:
+    ~/.emacs.d:
+      path: package/kporter/home/.emacs.d
+      create: true
+      relink: true
+      force: true
     ~/.gitconfig:
       path: package/kporter/home/.gitconfig
       create: true

@@ -1,0 +1,5 @@
+*
+!.gitignore
+!custom-vars.el
+!early-init.el
+!init.el
