@@ -68,3 +68,5 @@
 	email = kporter@aerospike.com
 [core]
 	editor = emacs
+[fetch]
+	prune = true
