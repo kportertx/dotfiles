@@ -1,5 +1,7 @@
 # C
 cscope.out
+.ccls-cache
+compile_commands.json
 
 # Eclipse
 .project
@@ -19,6 +21,7 @@ target/
 .classpath
 .metadata
 .settings
+.factorypath
 
 # Python
 *.pyc

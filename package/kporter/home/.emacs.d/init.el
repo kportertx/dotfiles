@@ -8,7 +8,8 @@
 
 (setq package-archives
       '(("melpa" . "https://melpa.org/packages/")
-	("elpa" . "https://elpa.gnu.org/packages/")))
+	("elpa" . "https://elpa.gnu.org/packages/")
+	("nongnu" . "https://elpa.nongnu.org/nongnu/")))
 
 (unless (bound-and-true-p package--initialized)
   (package-initialize))
@@ -26,6 +27,8 @@
   (setq use-package-always-ensure t)
   (setq use-package-always-defer t))
 
+(setq use-package-compute-statistics t) ;; for profiling, M-x use-package-report
+
 (use-package diminish :ensure t :after use-package) ;; if you use :diminish
 (use-package bind-key :ensure t :after use-package) ;; if you use any :bind variant
 (use-package delight :ensure t :after use-package)  ;; Use delighting for modes
@@ -38,6 +41,20 @@
   :config
   (auto-package-update-maybe)
   (auto-package-update-at-time "09:00"))
+
+;; Disable deprecation warnings about cl. The cl library has been deprecated,
+;; but lots of packages still use it.
+(setq byte-compile-warnings '(cl-functions))
+
+;; If an Emacs package relies on the installation of a system package,
+;; install that package.
+(use-package use-package-ensure-system-package
+  :demand t
+  :custom
+  (system-packages-package-manager 'apt))
+
+;; Don’t pop up a buffer to warn me about deprecations and other minor issues.
+(setq warning-minimum-level :emergency)
 
 ;;;;;;;;;;;
 ;; Theme ;;
@@ -55,6 +72,7 @@
 ;;;;;;;;;;;;;;
 
 (use-package emacs
+  :defer nil
   :init
   ;; Ensure we are always using UTF-8 encoding.
   (set-language-environment "UTF-8")
@@ -87,7 +105,6 @@
   ;; 		      (sh-mode . bash-ts-mode)))
   ;; (add-to-list 'major-mode-remap-alist mapping))
   :bind
-  ("C-x g" . goto-line)
   ("M-_" . undo-redo)
   :custom
   (setq-default cursor-type 'bar)           ; Line-style cursor similar to other text editors
@@ -132,17 +149,21 @@
 ;; Packages - Persistence ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(use-package no-littering)
+(use-package no-littering
+  :demand t)
 
 (use-package desktop
-  :defer nil
+  :demand t
   :bind
   ("C-M-s-k" . desktop-clear)
   :config
+  (setq desktop-restore-frames t)
+  (setq desktop-restore-in-current-display t)
+  (setq desktop-restore-forces-onscreen nil)
   (desktop-save-mode 1))
 
 (use-package recentf
-  :defer 7
+  :defer t
   :custom
   (recentf-max-saved-items 100)
   (recentf-max-menu-items 100)
@@ -163,6 +184,7 @@
   (dired-mode-hook . recentf-add-dired-directory))
 
 (use-package autorevert ; revert buffers when files on disk change
+  :demand t
   :custom
   (auto-revert-verbose nil)
   :hook
@@ -186,9 +208,12 @@
   (put 'kill-ring 'history-length 300)
   (savehist-mode))
 
-(use-package winner
-  :defer 10
+;;;;;;;;;;;;;;;;;;
+;; Package - UI ;;
+;;;;;;;;;;;;;;;;;;
 
+(use-package winner
+  :defer t
   :preface
   (defun winner-wrong-window ()
     "Open the last opened buffer in the other window."
@@ -202,7 +227,6 @@
 
   :config
   (winner-mode)
-
   :bind
   ("C-c [" . winner-undo)
   ("s-[" . winner-undo)
@@ -210,16 +234,16 @@
   ("s-]" . winner-redo)
   ("C-c z" . winner-wrong-window))
 
-;;;;;;;;;;;;;;;;;;
-;; Package - UI ;;
-;;;;;;;;;;;;;;;;;;
-
-(use-package imenu-anywhere :bind ("C-."))
+(use-package imenu-anywhere
+  :defer t
+  :bind ("C-."))
 
 (use-package smooth-scrolling
+  :demand t
   :config (smooth-scrolling-mode))
 
 (use-package which-key
+  :defer t
   :diminish which-key-mode
   :init
   (which-key-mode)
@@ -229,7 +253,7 @@
   (which-key-idle-secondary-delay 0.05))
 
 (use-package uniquify
-  :defer 1
+  :defer t
   :ensure nil
   :custom
   (uniquify-separator " • ")
@@ -239,77 +263,48 @@
   (uniquify-buffer-name-style 'post-forward)
   (uniquify-strip-common-suffix t))
 
+(use-package magit
+  :defer t
+  :config
+  (setq magit-log-arguments '("-n256" "--graph" "--decorate" "--color")
+	magit-diff-refine-hunk t))
+
+(use-package git-gutter+
+  :defer t
+  :ensure t
+  :config
+  (setq git-gutter+-disabled-modes '(org-mode))
+  ;; Move between local changes
+  (global-set-key (kbd "M-<up>") 'git-gutter+-previous-hunk)
+  (global-set-key (kbd "M-<down>") 'git-gutter+-next-hunk)
+  :hook
+  (prog-mode . git-gutter+-mode))
+
+(use-package vterm
+  :defer t)
+
+(use-package multi-vterm
+  :defer t
+  :bind
+  ("C-c t" . multi-vterm))
+
 (use-package marginalia
-  :defer 4
+  :defer t
   :init
   (marginalia-mode))
 
-;; (use-package helm
-;;   :defer 1
-;;   :diminish helm-mode
-;;   :init
-;;   (defun daedreth/helm-hide-minibuffer ()
-;;     (when (with-helm-buffer helm-echo-input-in-header-line)
-;;       (let ((ov (make-overlay (point-min) (point-max) nil nil t)))
-;;         (overlay-put ov 'window (selected-window))
-;;         (overlay-put ov 'face
-;;                      (let ((bg-color (face-background 'default nil)))
-;;                        `(:background ,bg-color :foreground ,bg-color)))
-;;         (setq-local cursor-type nil))))
-;;   :config
-;;   (helm-mode)
-;;   (helm-autoresize-mode)
-;;   :custom
-;;   (helm-autoresize-max-height 0)
-;;   (helm-autoresize-min-height 40)
-;;   (helm-buffers-fuzzy-matching t)
-;;   (helm-recentf-fuzzy-match t)
-;;   (helm-semantic-fuzzy-match t)
-;;   (helm-imenu-fuzzy-match t)
-;;   (helm-split-window-in-side-p nil)
-;;   (helm-move-to-line-cycle-in-source nil)
-;;   (helm-ff-search-library-in-sexp t)
-;;   (helm-scroll-amount 8)
-;;   (helm-echo-input-in-header-line nil)
-;;   :bind
-;;   (("C-x C-f"       . helm-find-files)
-;;    ("C-x C-b"       . helm-buffers-list)
-;;    ("C-x b"         . helm-multi-files)
-;;    ("M-x"           . helm-M-x)
-;;    :map helm-find-files-map
-;;    ("C-<backspace>" . helm-find-files-up-one-level)
-;;    ("C-f"           . helm-execute-persistent-action)
-;;    ([tab]           . helm-ff-RET))
-;;   :hook
-;;   (helm-mode .
-;;              (lambda ()
-;;                (setq completion-styles
-;;                      (cond ((assq 'helm-flex completion-styles-alist)
-;;                             '(helm-flex)) ;; emacs-26
-;;                            ((assq 'flex completion-styles-alist)
-;;                             '(flex))))))  ;; emacs-27+
-;;   (helm-minibuffer-set-up . daedreth/helm-hide-minibuffer))
-
-;; ;;;; BEGIN
-
 (use-package vertico
+  :demand t
   :init
   (vertico-mode)
-
-  ;; Different scroll margin
-  ;; (setq vertico-scroll-margin 0)
-
-  ;; Show more candidates
-  ;; (setq vertico-count 20)
-
-  ;; Grow and shrink the Vertico minibuffer
-  ;; (setq vertico-resize t)
-
-  ;; Optionally enable cycling for `vertico-next' and `vertico-previous'.
-  ;; (setq vertico-cycle t)
+  ;; (setq vertico-scroll-margin 0)     ; Different scroll margin
+  ;; (setq vertico-count 20)            ; Show more candidates
+  ;; (setq vertico-resize t)            ; Grow and shrink the Vertico minibuffer
+  ;; (setq vertico-cycle t)             ; Optionally enable cycling for `vertico-next' and `vertico-previous'.
   )
 
 (use-package corfu
+  :demand t
   :init
   (global-corfu-mode)
   ;; Optional customizations
@@ -335,6 +330,7 @@
   )
 
 (use-package orderless
+  :demand t
   :init
   ;; Configure a custom style dispatcher (see the Consult wiki)
   ;; (setq orderless-style-dispatchers '(+orderless-consult-dispatch orderless-affix-dispatch)
@@ -344,6 +340,7 @@
         completion-category-overrides '((file (styles partial-completion)))))
 
 (use-package consult
+  :defer t
   ;; Replace bindings. Lazily loaded due by `use-package'.
   :bind (;; C-c bindings in `mode-specific-map'
          ("C-c M-x" . consult-mode-command)
@@ -370,6 +367,7 @@
          ("M-g f" . consult-flymake)               ;; Alternative: consult-flycheck
          ("M-g g" . consult-goto-line)             ;; orig. goto-line
          ("M-g M-g" . consult-goto-line)           ;; orig. goto-line
+	 ("C-x g" . consult-goto-line)             ;; goto-line - eclipse emacs
          ("M-g o" . consult-outline)               ;; Alternative: consult-org-heading
          ("M-g m" . consult-mark)
          ("M-g k" . consult-global-mark)
@@ -446,20 +444,14 @@
   ;; You may want to use `embark-prefix-help-command' or which-key instead.
   ;; (define-key consult-narrow-map (vconcat consult-narrow-key "?") #'consult-narrow-help)
 
-  ;; By default `consult-project-function' uses `project-root' from project.el.
-  ;; Optionally configure a different project root function.
   ;;;; 1. project.el (the default)
   ;; (setq consult-project-function #'consult--default-project--function)
-  ;;;; 2. vc.el (vc-root-dir)
-  ;; (setq consult-project-function (lambda (_) (vc-root-dir)))
-  ;;;; 3. locate-dominating-file
-  ;; (setq consult-project-function (lambda (_) (locate-dominating-file "." ".git")))
-  ;;;; 4. projectile.el (projectile-project-root)
+  ;;;; 2. projectile.el (projectile-project-root) - overrides project.el by default.
   ;; (autoload 'projectile-project-root "projectile")
   ;; (setq consult-project-function (lambda (_) (projectile-project-root)))
-  ;;;; 5. No project support
-  ;; (setq consult-project-function nil)
   )
+
+;; (use-package consult-eglot)
 
 (defun embark-which-key-indicator ()
   "An embark indicator that displays keymaps using which-key.
@@ -500,13 +492,12 @@ targets."
             :around #'embark-hide-which-key-indicator)
 
 (use-package embark
+  :defer t
   :ensure t
-
   :bind
   (("C-." . embark-act)         ;; pick some comfortable binding
-   ("C-;" . embark-dwim)        ;; good alternative: M-.
+   ("M-." . embark-dwim)
    ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
-
   :init
 
   ;; Optionally replace the key help with a completing-read interface
@@ -516,7 +507,6 @@ targets."
   ;; strategy, if you want to see the documentation from multiple providers.
   (add-hook 'eldoc-documentation-functions #'embark-eldoc-first-target)
   ;; (setq eldoc-documentation-strategy #'eldoc-documentation-compose-eagerly)
-
   :config
 
   ;; Hide the mode line of the Embark live/completions buffers
@@ -527,41 +517,52 @@ targets."
 
 ;; Consult users will also want the embark-consult package.
 (use-package embark-consult
+  :defer t
   :ensure t ; only need to install it, embark loads it after consult if found
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
 
-;; ;;;;;; END
-
-(use-package dirvish) ; dired replacement
+(use-package dirvish ; dired replacement
+  :defer t
+  :init
+  (dirvish-override-dired-mode)
+  :config
+  (setq dirvish-hide-details nil)
+  (setq dirvish-attributes
+	'(all-the-icons collapse file-size file-time subtree-state vc-state))
+  (setq dired-listing-switches
+        "-l --all --human-readable --group-directories-first --no-group")
+  :bind
+  (("C-c f" . dirvish-fd)
+   :map dirvish-mode-map ; Dirvish inherits `dired-mode-map'
+   ("a"   . dirvish-quick-access)
+   ("f"   . dirvish-file-info-menu)
+   ("y"   . dirvish-yank-menu)
+   ("N"   . dirvish-narrow)
+   ("^"   . dirvish-history-last)
+   ("h"   . dirvish-history-jump) ; remapped `describe-mode'
+   ("TAB" . dirvish-subtree-toggle)
+   ("M-f" . dirvish-history-go-forward)
+   ("M-b" . dirvish-history-go-backward)
+   ("M-l" . dirvish-ls-switches-menu)
+   ("M-m" . dirvish-mark-menu)
+   ("M-t" . dirvish-layout-toggle)
+   ("M-s" . dirvish-setup-menu)
+   ("M-e" . dirvish-emerge-menu)
+   ("M-j" . dirvish-fd-jump)))
 
 (use-package vundo
+  :defer t
   :bind
   ("C-u" . vundo))
 
-(use-package symbol-overlay
-  :bind
-  ("C-s-i" . symbol-overlay-put)
-  ("C-s-n" . symbol-overlay-jump-next)
-  ("C-s-p" . symbol-overlay-jump-prev)
-  ("C-s-r" . symbol-overlay-rename)
-  ("C-s-5" . symbol-overlay-query-replace)
-  ("<f7>" . symbol-overlay-mode)
-  ("<f8>" . symbol-overlay-remove-all))
-
 (use-package rainbow-mode
+  :demand t
   :init
   (rainbow-mode))
 
-(use-package god-mode)
-
-(use-package key-chord
-  :init
-  (key-chord-mode)
-  :config
-  (key-chord-define-global "jf" 'god-local-mode))
-
 (use-package buffer-move
+  :defer t
   :bind
   ("C-M-W" . buf-move-up)
   ("C-M-S" . buf-move-down)
@@ -569,6 +570,7 @@ targets."
   ("C-M-D" . buf-move-right))
 
 (use-package winum
+  :demand t
   :init
   (winum-mode)
   :custom
@@ -584,7 +586,8 @@ targets."
   ("M-7" . winum-select-window-7)
   ("M-8" . winum-select-window-8))
 
-(use-package all-the-icons)
+(use-package all-the-icons
+  :demand t)
 
 (use-package all-the-icons-completion
   :after (marginalia all-the-icons)
@@ -593,7 +596,7 @@ targets."
   (all-the-icons-completion-mode))
 
 (use-package doom-modeline
-  :demand
+  :demand t
   :init
   (setq doom-modeline-buffer-encoding nil)
   (setq doom-modeline-env-enable-python nil)
@@ -604,6 +607,7 @@ targets."
   (set-face-attribute 'doom-modeline-evil-insert-state nil :foreground "orange"))
 
 (use-package display-fill-column-indicator
+  :defer t
   :hook
   (prog-mode . display-fill-column-indicator-mode)
   :init
@@ -611,28 +615,47 @@ targets."
   ;; (setq display-fill-column-indicator-character "|")
   )
 
-(use-package flycheck :init (global-flycheck-mode))
+(use-package flycheck
+  :demand t
+  :init
+  (global-flycheck-mode))
+
 (use-package flycheck-prospector
   :after flycheck
   :init (flycheck-prospector-setup))
+
+(use-package projectile
+  :demand t
+  :init
+  (setq projectile-project-search-path '(("~/projects/" . 3)))
+  (projectile-mode +1)
+  :bind
+  (:map projectile-mode-map
+        ("s-p" . projectile-command-map)
+        ("C-c p" . projectile-command-map)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Package - Editiing ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
 (use-package sudo-edit
+  :demand t
   :init
   (sudo-edit-indicator-mode)
   :bind
   ("C-c C-r" . sudo-edit))
 
 (use-package expand-region
+  :defer t
   :bind
   ("C-=" . er/expand-region)
   ("C--" . er/contract-region))
 
-(use-package pcre2el)
+(use-package pcre2el
+  :demand t)
+
 (use-package visual-regexp-steroids
+  :defer t
   :custom
   (vr/engine 'pcre2el "Use PCRE regular expressions")
   :bind
@@ -644,22 +667,25 @@ targets."
   ("C-M-r" . isearch-backward))
 
 (use-package iedit
+  :defer t
   :config
   (set-face-background 'iedit-occurrence "Magenta")
   :bind
   ("C-;" . iedit-mode))
 
 (use-package eldoc ; shows argument list of function call you are writing
+  :defer t
   :diminish
   :hook
   (prog-mode       . turn-on-eldoc-mode)
   (cider-repl-mode . turn-on-eldoc-mode))
 
 (use-package flyspell
-  :defer 1
+  :defer t
   :diminish)
 
 (use-package rainbow-delimiters
+  :defer t
   :config
   (custom-set-faces
    '(rainbow-delimiters-unmatched-face
@@ -668,6 +694,7 @@ targets."
   ((prog-mode cider-repl-mode) . rainbow-delimiters-mode))
 
 (use-package format-all
+  :defer t
   :hook
   (prog-mode . format-all-mode))
 
@@ -676,16 +703,18 @@ targets."
   (global-hungry-delete-mode))
 
 (use-package dumb-jump
-  :defer 4
+  :defer t
   :hook
   (xref-backend-functions . dumb-jump-xref-activate))
 
 (use-package aggressive-indent
+  :defer t
   :hook
   (prog-mode . aggressive-indent-mode)
   (python-mode . (lambda () (aggressive-indent-mode -1))))
 
 (use-package hl-todo
+  :defer t
   :custom
   (hl-todo-keyword-faces
    '(("TODO" . "magenta")
@@ -711,14 +740,6 @@ targets."
         ("M-s h C-n" . hl-todo-next)
         ("M-s h o" . hl-todo-occur)))
 
-(use-package projectile
-  :disabled ; fd command issue.
-  :init (projectile-mode +1)
-  :config
-  (setq projectile-project-search-path '("~/projects/"))
-  :bind (:map projectile-mode-map
-	      ("C-c p" . projectile-command-map)))
-
 ;;;;; Useful to switch between window / file layouts.
 ;; C-x r w ;; save a layout
 ;; C-x r j ;; load a layout
@@ -727,55 +748,106 @@ targets."
 ;; Packages - Lang ;;
 ;;;;;;;;;;;;;;;;;;;;;
 
-(use-package elisp-lint)
+;; Treating terms in CamelCase symbols as separate words makes editing.
+(use-package subword
+  :demand t
+  :config (global-subword-mode 1))
+
+(use-package elisp-lint
+  :demand t)
 
 (use-package markdown-mode
+  :defer t
   :hook
   (markdown-mode . visual-line-mode)
   (maqrkdown-mode . variable-pitch-mode))
 
-(use-package lua-mode)
-(use-package yaml-mode)
-(use-package go-mode)
-(use-package dockerfile-mode)
+(use-package lua-mode :demand t)
+(use-package yaml-mode :demand t)
+(use-package go-mode :demand t)
+(use-package dockerfile-mode :demand t)
 
 ;;;;; Not compiled with tree-sitter
 ;; ; Open python files in tree-sitter mode.
 ;; (add-to-list 'major-mode-remap-alist '(python-mode . python-ts-mode))
+;; (use-package eglot
+;;   :bind
+;;   (:map eglot-mode-map
+;;         ("C-c C-d" . eldoc)
+;;         ("C-c C-e" . eglot-rename)
+;;         ("C-c C-o" . python-sort-imports)
+;;         ("C-c C-f" . eglot-format-buffer))
+;;   :config
+;;   (setq-default
+;;    eglot-workspace-configuration
+;;    '((:pylsp
+;;       . (:configurationSources
+;; 	 ["flake8"]
+;; 	 :plugins (
+;; 		   :pycodestyle (:enabled :json-false)
+;; 		   :mccabe (:enabled :json-false)
+;; 		   :pyflakes (:enabled :json-false)
+;; 		   :flake8 (:enabled :json-false
+;; 				     :maxLineLength 80)
+;; 		   :ruff (:enabled t :lineLength 80)
+;; 		   :pydocstyle (:enabled t :convention "numpy")
+;; 		   :yapf (:enabled :json-false)
+;; 		   :autopep8 (:enabled :json-false)
+;; 		   :black (:enabled t :line_length 80
+;; 				    :cache_config t))))))
+;;   (with-eval-after-load "eglot"
+;;     (add-to-list 'eglot-stay-out-of 'eldoc))
+;;   :hook
+;;   (python-mode . eglot-ensure)
+;;   (python-mode . flyspell-prog-mode)
+;;   (python-mode . superword-mode)
+;;   (python-mode . hs-minor-mode)
+;;   (python-mode . (lambda () (set-fill-column 80))))
 
-(use-package eglot
-  :ensure t
+(use-package lsp-mode
   :defer t
-  :bind (:map eglot-mode-map
-              ("C-c C-d" . eldoc)
-              ("C-c C-e" . eglot-rename)
-              ("C-c C-o" . python-sort-imports)
-              ("C-c C-f" . eglot-format-buffer))
-  :config (setq-default
-	   eglot-workspace-configuration
-	   '((:pylsp . (:configurationSources
-			["flake8"]
-			:plugins (
-				  :pycodestyle (:enabled :json-false)
-				  :mccabe (:enabled :json-false)
-				  :pyflakes (:enabled :json-false)
-				  :flake8 (:enabled :json-false
-						    :maxLineLength 80)
-				  :ruff (:enabled t
-						  :lineLength 80)
-				  :pydocstyle (:enabled t
-							:convention "numpy")
-				  :yapf (:enabled :json-false)
-				  :autopep8 (:enabled :json-false)
-				  :black (:enabled t
-						   :line_length 80
-						   :cache_config t))))))
-  :hook ((python-mode . eglot-ensure)
-         (python-mode . flyspell-prog-mode)
-         (python-mode . superword-mode)
-         (python-mode . hs-minor-mode)
-         (python-mode . (lambda () (set-fill-column 80)))))
+  :config
+  (setq lsp-auto-configure t
+	lsp-before-save-edits t
+	lsp-eldoc-enable-hover t
+	lsp-eldoc-render-all nil
+	lsp-completion-enable t
+	lsp-file-watch-threshold 100
+	lsp-enable-imenu t
+	lsp-enable-indentation t
+	lsp-enable-links t
+	lsp-enable-xref t
+	lsp-semantic-tokens-enable t
+	lsp-signature-auto-activate t
+	lsp-signature-render-documentation t
+	lsp-signature-doc-lines 10
+	lsp-idle-delay 0.5
+	lsp-enable-symbol-highlighting t)
+  :init
+  ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
+  (setq lsp-keymap-prefix "C-c l")
+  :hook ((python-mode . lsp)
+         ;; if you want which-key integration
+         (lsp-mode . lsp-enable-which-key-integration))
+  :commands lsp)
 
+(use-package lsp-ui
+  :after lsp-mode
+  :commands lsp-ui-mode
+  :hook (lsp-mode . lsp-ui-mode)
+  :custom
+  (lsp-ui-peek-always-show t)
+  (lsp-ui-sideline-show-hover t)
+  (lsp-ui-doc-enable nil))
+
+;; The helpful package provides more context in Help buffers.
+(use-package helpful
+  :defer t
+  :commands (helpful-callable helpful-variable helpful-key)
+  :bind
+  ("C-h f" . 'helpful-callable)
+  ("C-h v" . 'helpful-variable)
+  ("C-h k" . 'helpful-key))
 
 ;;;;;;;;;;;
 ;; Hooks ;;
@@ -789,7 +861,7 @@ targets."
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
 (use-package gcmh
-  :defer 19
+  :defer t
   :config
   (gcmh-mode))
 
