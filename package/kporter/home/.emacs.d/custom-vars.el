@@ -88,7 +88,7 @@
       (path-separator . ":")
       (null-device . "/dev/null"))))
  '(package-selected-packages
-   '(embark-consult embark consult orderless vertico gcmh dockerfile-mode go-mode yaml-mode lua-mode markdown-mode elisp-lint corfu hl-todo aggressive-indent dumb-jump hungry-delete format-all rainbow-delimiters iedit visual-regexp-steroids pcre2el expand-region sudo-edit flycheck-prospector flycheck doom-modeline all-the-icons-completion all-the-icons winum buffer-move minions key-chord god-mode rainbow-mode symbol-overlay vundo dirvish helm marginalia which-key smooth-scrolling imenu-anywhere no-littering color-theme-sanityinc-tomorrow auto-package-update delight diminish)))
+   '(gcmh dtrt-indent clean-aindent-mode yaml-mode python-mode lua-mode go-mode dockerfile-mode elisp-lint lsp-ui lsp-mode format-all hl-todo aggressive-indent hungry-delete iedit visual-regexp-steroids pcre2el expand-region sudo-edit flycheck-prospector flycheck vundo embark-consult embark consult-dir consult orderless corfu vertico marginalia helpful dumb-jump rainbow-delimiters git-gutter+ magit multi-vterm vterm dirvish projectile winum doom-modeline rainbow-mode imenu-anywhere buffer-move smooth-scrolling all-the-icons-completion all-the-icons no-littering color-theme-sanityinc-tomorrow auto-package-update delight diminish)))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -96,5 +96,4 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(rainbow-delimiters-unmatched-face ((t (:background "red" :foreground "white")))))
-
 ;;; custom-vars.el ends here
