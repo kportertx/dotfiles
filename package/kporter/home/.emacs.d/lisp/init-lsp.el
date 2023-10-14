@@ -6,29 +6,32 @@
   :ensure t
   :config
   (setq lsp-auto-configure t
-	lsp-before-save-edits t
-	lsp-eldoc-enable-hover t
-	lsp-eldoc-render-all nil
-	lsp-completion-enable t
-	lsp-file-watch-threshold 10
-	lsp-enable-imenu t
-	lsp-enable-indentation t
-	lsp-enable-links t
-	lsp-enable-xref t
-	lsp-semantic-tokens-enable t
-	lsp-signature-auto-activate t
-	lsp-signature-render-documentation t
-	lsp-signature-doc-lines 10
-	lsp-idle-delay 0.5
-	lsp-enable-symbol-highlighting t)
+		lsp-before-save-edits t
+		lsp-eldoc-enable-hover t
+		lsp-eldoc-render-all nil
+		lsp-completion-enable t
+		lsp-file-watch-threshold 10
+		lsp-enable-imenu t
+		lsp-enable-indentation t
+		lsp-enable-links t
+		lsp-enable-xref t
+		lsp-semantic-tokens-enable t
+		lsp-signature-auto-activate t
+		lsp-signature-render-documentation t
+		lsp-signature-doc-lines 10
+		lsp-idle-delay 0.1
+		lsp-enable-symbol-highlighting t)
   :init
-  (with-eval-after-load 'lsp-mode
-    (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration))
+  ;;(setq exec-path (append exec-path '("~/.nvm/versions/node/v20.8.0/bin")))
+  ;; (with-eval-after-load 'lsp-mode
+  ;;   (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration))
   (setq lsp-keymap-prefix "C-c l")
   :hook
-  (python-mode . lsp)
-  (c-mode . lsp)
+  (bash-mode . lsp)
   (c++-mode . lsp)
+  (c-mode . lsp)
+  (python-mode . lsp)
+  (rustic-mode . lsp)
   :commands lsp)
 
 (use-package lsp-ui

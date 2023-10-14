@@ -16,21 +16,22 @@
   (show-paren-mode t)                           ; Visually indicates pair of matching parentheses
   (delete-selection-mode t)                     ; Start writing straight after deletion
   (put 'narrow-to-region 'disabled nil)	        ; Allows narrowing bound to C-x n n (region) and C-x n w (widen)
-  (global-hl-line-mode 0)			; Highlight the current line to make it more visible
   (pixel-scroll-precision-mode)	                ; Precision scrolling
   (column-number-mode)                          ; Display column (and line) number in mode line
-  (global-display-line-numbers-mode)		; Display line numbers in every buffer
+  (global-display-line-numbers-mode)            ; Display line numbers in every buffer
+  (setq sentence-end-double-space nil)
+  (setq-default show-trailing-whitespace t)
   (setq custom-file (locate-user-emacs-file "custom-vars.el"))
   (load custom-file 'noerror 'nomessage)
-  (setq tab-width 4)
-  (setq require-final-newline t)
+  (setq-default require-final-newline t)
   :bind
   ("M-_" . undo-redo)
   ("RET" . newline-and-indent)
+  ("C-/" . comment-or-uncomment-region)
   :custom
   (setq-default cursor-type 'bar)           ; Line-style cursor similar to other text editors
   (setq-default frame-title-format '("%b")) ; Make window title the buffer name
-  (setq-default fill-column 80)		    ; Set fill column to 80 rather than 70, in all cases.
+  (setq-default fill-column 80)             ; Set fill column to 80 rather than 70, in all cases.
   (initial-major-mode 'fundamental-mode)    ; No need to have an Elisp buffer when starting up
   (inhibit-startup-screen t)                ; Disable startup screen
   (confirm-kill-processes nil)              ; Stop confirming the killing of processes
@@ -41,7 +42,14 @@
   (tab-always-indent 'complete)             ; Enable indentation+completion using the TAB key.
   (visible-bell nil)
   (enable-recursive-minibuffers t)
+  (setq-default tab-width 4)
   (setq-default indent-tabs-mode t)
+  ;; Make `tabify' and `untabify' only affect indentation. Not tabs/spaces in the
+  ;; middle of a line.
+  (tabify-regexp "^\t* [ \t]+")
+  (kill-do-not-save-duplicates t)
+  (setq-default display-line-numbers-width 3)
+  
 
   ;; Persist Emacs session data.
   ;; Store all backup and autosave files in their own directory since it is bad to

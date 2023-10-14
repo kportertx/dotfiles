@@ -2,35 +2,6 @@
 ;;; Commentary:
 ;;; Code:
 
-(use-package all-the-icons :ensure t :demand t)
-
-(use-package all-the-icons-completion
-  :ensure t
-  :after (marginalia all-the-icons)
-  :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
-  :init
-  (all-the-icons-completion-mode))
-
-(use-package smooth-scrolling
-  :ensure t
-  :init
-  (smooth-scrolling-mode))
-
-(use-package buffer-move
-  :ensure t
-  :bind
-  ("C-M-W" . buf-move-up)
-  ("C-M-S" . buf-move-down)
-  ("C-M-A" . buf-move-left)
-  ("C-M-D" . buf-move-right))
-
-(use-package display-fill-column-indicator
-  :ensure t
-  :init
-  (setq-default fill-column  80)
-  :hook
-  (prog-mode . display-fill-column-indicator-mode))
-
 (use-package uniquify
   :ensure nil ;; Package doesn't actually exists - will slow emacs startup.
   :defer t
@@ -43,90 +14,47 @@
   (uniquify-strip-common-suffix t))
 
 (use-package imenu-anywhere
+  ;; `imenu-anywhere` provides navigation for imenu tags across all buffers that
+  ;; satisfy grouping criteria. Available criteria include - all buffers with the
+  ;; same major mode, same project buffers and user defined list of friendly mode
+  ;; buffers.
   :ensure t
   :defer t
   :bind ("C-c C-SPC" . imenu-anywhere))
 
 (use-package rainbow-mode
+  ;; This minor mode sets background color to strings that match color
+  ;; names, e.g. #0000ff is displayed in white with a blue background.
   :ensure t
   :diminish
   :init
   (rainbow-mode))
 
-(use-package doom-modeline
-  :ensure t
-  :demand t
-  :init
-  ;; If non-nil, cause imenu to see `doom-modeline' declarations.
-  ;; This is done by adjusting `lisp-imenu-generic-expression' to
-  ;; include support for finding `doom-modeline-def-*' forms.
-  ;; Must be set before loading doom-modeline.
-  (setq doom-modeline-support-imenu t)
-  (setq doom-modeline-height 25)
-  (setq doom-modeline-buffer-file-name-style 'relative-from-project)
-  ;; Whether display the buffer encoding.
-  (setq doom-modeline-buffer-encoding nil)
-  (setq doom-modeline-project-detection 'projectile)
+(use-package indent-bars
+  ;; indent-bars highlights indentation with configurable font-lock
+  ;; based vertical bars, using stipples.  The color and appearance
+  :straight (indent-bars :type git :host github :repo "jdtsmith/indent-bars")
   :config
-  (set-face-attribute 'doom-modeline-evil-insert-state nil :foreground "orange")
-  :hook (after-init . doom-modeline-mode))
-
-(use-package winum
-  :ensure t
-  :init
-  (winum-mode)
-  :custom
-  (winum-auto-setup-mode-line nil)
-  :bind
-  ("M-0" . winum-select-window-0-or-10)
-  ("M-1" . winum-select-window-1)
-  ("M-2" . winum-select-window-2)
-  ("M-3" . winum-select-window-3)
-  ("M-4" . winum-select-window-4)
-  ("M-5" . winum-select-window-5)
-  ("M-6" . winum-select-window-6)
-  ("M-7" . winum-select-window-7)
-  ("M-8" . winum-select-window-8))
-
-(use-package winner
-  :defer t
-  :preface
-  (defun winner-wrong-window ()
-    "Open the last opened buffer in the other window."
-    (interactive)
-    (let* ((current (window-list))
-           (previous (save-window-excursion (winner-undo) (window-list)))
-           (window (seq-some (lambda (w) (not (memq w previous))) current))
-           (buffer (window-buffer window)))
-      (winner-undo)
-      (switch-to-buffer-other-window buffer)))
-
-  :config
-  (winner-mode)
-  :bind
-  ("C-c [" . winner-undo)
-  ("s-[" . winner-undo)
-  ("C-c ]" . winner-redo)
-  ("s-]" . winner-redo)
-  ("C-c z" . winner-wrong-window))
-
-(use-package projectile
-  :ensure t
-  :init
-  (setq projectile-project-search-path '(("~/projects/" . 3)))
-  (projectile-mode +1)
-  :bind
-  (:map projectile-mode-map
-        ("s-p" . projectile-command-map)
-        ("C-c p" . projectile-command-map)))
+  (setq
+   indent-bars-color '(highlight :face-bg t :blend 0.15)
+   indent-bars-pattern "."
+   indent-bars-width-frac 0.1
+   indent-bars-pad-frac 0.1
+   indent-bars-zigzag nil
+   indent-bars-color-by-depth '(:regexp "outline-\\([0-9]+\\)" :blend 1) ; blend=1: blend with BG only
+   indent-bars-highlight-current-depth '(:blend 0.5) ; pump up the BG blend on current
+   indent-bars-display-on-blank-lines t)
+  :hook
+  (prog-mode . indent-bars-mode))
 
 (use-package dirvish ; dired replacement
+  :ensure t
   :init
   (dirvish-override-dired-mode)
   :config
   (setq dirvish-hide-details nil)
   (setq dirvish-attributes
-	'(all-the-icons collapse file-size file-time subtree-state vc-states))
+		'(all-the-icons collapse file-size file-time subtree-state vc-states))
   (setq dired-listing-switches
         "-l --all --human-readable --group-directories-first --no-group")
   :bind
@@ -148,31 +76,53 @@
    ("M-e" . dirvish-emerge-menu)
    ("M-j" . dirvish-fd-jump)))
 
-(use-package vterm :ensure t :defer t)
-
-(use-package multi-vterm
-  :ensure t
-  :bind
-  ("C-c t" . multi-vterm))
-
-(use-package magit
-  :ensure t
+(use-package recentf
+  ;; This package maintains a list of recently opened files and makes it
+  ;; easy to visit them.  The recent files list is automatically saved
+  ;; across Emacs sessions.
   :defer t
+  :custom
+  (recentf-max-saved-items 1000)
+  (recentf-max-menu-items 1000)
+  (recentf-auto-cleanup 'never)
+  :preface
+  (defun recentf-add-dired-directory ()
+    (if (and dired-directory
+             (file-directory-p dired-directory)
+             (not (string= "/" dired-directory)))
+        (let ((last-idx (1- (length dired-directory))))
+          (recentf-add-file
+           (if (= ?/ (aref dired-directory last-idx))
+               (substring dired-directory 0 last-idx)
+             dired-directory)))))
   :config
-  (setq magit-log-arguments '("-n256" "--graph" "--decorate" "--color")
-	magit-diff-refine-hunk t))
-
-(use-package git-gutter+
-  :ensure t
-  :config
-  (setq git-gutter+-disabled-modes '(org-mode))
-  ;; Move between local changes
-  (global-set-key (kbd "M-<up>") 'git-gutter+-previous-hunk)
-  (global-set-key (kbd "M-<down>") 'git-gutter+-next-hunk)
+  (recentf-mode)
+  :bind
+  ("C-x C-r" . recentf)
   :hook
-  (prog-mode . git-gutter+-mode))
+  (dired-mode-hook . recentf-add-dired-directory))
+
+(use-package winum
+  ;; Window numbers for Emacs: Navigate your windows and frames using numbers.
+  :ensure t
+  :init
+  (winum-mode)
+  :custom
+  (winum-auto-setup-mode-line nil)
+  :bind
+  ("M-0" . winum-select-window-0-or-10)
+  ("M-1" . winum-select-window-1)
+  ("M-2" . winum-select-window-2)
+  ("M-3" . winum-select-window-3)
+  ("M-4" . winum-select-window-4)
+  ("M-5" . winum-select-window-5)
+  ("M-6" . winum-select-window-6)
+  ("M-7" . winum-select-window-7)
+  ("M-8" . winum-select-window-8))
 
 (use-package rainbow-delimiters
+  ;; Rainbow-delimiters is a "rainbow parentheses"-like mode which highlights
+  ;; parentheses, brackets, and braces according to their depth.
   :ensure t
   :config
   (custom-set-faces
@@ -181,12 +131,8 @@
   :hook
   ((prog-mode cider-repl-mode) . rainbow-delimiters-mode))
 
-(use-package dumb-jump
-  :ensure t
-  :hook
-  (xref-backend-functions . dumb-jump-xref-activate))
-
-(use-package eldoc ; shows argument list of function call you are writing
+(use-package eldoc
+  ;; shows argument list of function call you are writing
   :ensure t
   :diminish
   :hook
@@ -194,6 +140,8 @@
   (cider-repl-mode . turn-on-eldoc-mode))
 
 (use-package helpful
+  ;; Helpful is a replacement for *help* buffers that provides much more
+  ;; contextual information.
   :ensure t
   :commands (helpful-callable helpful-variable helpful-key)
   :bind
@@ -201,59 +149,16 @@
   ("C-h v" . 'helpful-variable)
   ("C-h k" . 'helpful-key))
 
-(use-package marginalia
-  :ensure t
-  :defer t
-  :init
-  (marginalia-mode))
-
-(use-package vertico
-  :ensure t
-  :init
-  (vertico-mode)
-  ;; (setq vertico-scroll-margin 0)     ; Different scroll margin
-  ;; (setq vertico-count 20)            ; Show more candidates
-  ;; (setq vertico-resize t)            ; Grow and shrink the Vertico minibuffer
-  ;; (setq vertico-cycle t)             ; Optionally enable cycling for `vertico-next' and `vertico-previous'.
-  )
-
-(use-package corfu
-  :ensure t
-  :init
-  (global-corfu-mode)
-  ;; Optional customizations
-  :custom
-  (corfu-cycle t)                ; Enable cycling for `corfu-next/previous'
-  (corfu-auto t)                 ; Enable auto completion
-  ;; (corfu-separator ?\s)          ; Orderless field separator
-  ;; (corfu-quit-at-boundary nil)   ; Never quit at completion boundary
-  ;; (corfu-quit-no-match nil)      ; Never quit, even if there is no match
-  ;; (corfu-preview-current nil)    ; Disable current candidate preview
-  ;; (corfu-preselect 'prompt)      ; Preselect the prompt
-  ;; (corfu-on-exact-match nil)     ; Configure handling of exact matches
-  ;; (corfu-scroll-margin 5)        ; Use scroll margin
-
-  ;; Enable Corfu only for certain modes.
-  ;; :hook ((prog-mode . corfu-mode)
-  ;;        (shell-mode . corfu-mode)
-  ;;        (eshell-mode . corfu-mode))
-
-  ;; Recommended: Enable Corfu globally.
-  ;; This is recommended since Dabbrev can be used globally (M-/).
-  ;; See also `corfu-exclude-modes'.
-  )
-
-(use-package orderless
-  :ensure t
-  :init
-  ;; Configure a custom style dispatcher (see the Consult wiki)
-  ;; (setq orderless-style-dispatchers '(+orderless-consult-dispatch orderless-affix-dispatch)
-  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
-  (setq completion-styles '(orderless basic)
-        completion-category-defaults nil
-        completion-category-overrides '((file (styles partial-completion)))))
-
 (use-package consult
+  ;; Consult implements a set of `consult-<thing>' commands, which aim to
+  ;; improve the way you use Emacs.  The commands are founded on
+  ;; `completing-read', which selects from a list of candidate strings.
+  ;; Consult provides an enhanced buffer switcher `consult-buffer' and
+  ;; search and navigation commands like `consult-imenu' and
+  ;; `consult-line'.  Searching through multiple files is supported by the
+  ;; asynchronous `consult-grep' command.  Many Consult commands support
+  ;; previewing candidates.  If a candidate is selected in the completion
+  ;; view, the buffer shows the candidate immediately.
   :ensure t
   ;; Replace bindings. Lazily loaded due by `use-package'.
   :bind
@@ -354,6 +259,10 @@
   )
 
 (use-package consult-dir
+  ;; Consult-dir implements commands to easily switch between "active"
+  ;; directories. The directory candidates are collected from user bookmarks,
+  ;; projectile project roots (if available), project.el project roots and recentf
+  ;; file locations. The `default-directory' variable not changed in the process.
   :ensure t
   :after (consult)
   :bind (("C-x C-d" . consult-dir)
@@ -362,6 +271,10 @@
          ("C-x C-j" . consult-dir-jump-file)))
 
 (use-package embark
+  ;; This package provides a sort of right-click contextual menu for
+  ;; Emacs, accessed through the `embark-act' command (which you should
+  ;; bind to a convenient key), offering you relevant actions to use on
+  ;; a target determined by the context:
   :ensure t
   :bind
   (("C-." . embark-act)         ;; pick some comfortable binding
@@ -384,10 +297,137 @@
                  (window-parameters (mode-line-format . none)))))
 
 (use-package embark-consult
+  ;; This package provides integration between Embark and Consult.  The package
+  ;; will be loaded automatically by Embark.
   :ensure t ; only need to install it, embark loads it after consult if found
-  :after (consult embark)
+  :after (consult)
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
+
+(use-package all-the-icons-completion
+  :ensure t
+  :after (marginalia all-the-icons)
+  :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
+  :init
+  (all-the-icons-completion-mode))
+
+
+
+
+
+(use-package dumb-jump
+  ;; Dumb Jump is an Emacs "jump to definition" package with support for 50+
+  ;; programming languages that favors "just working" over speed or accuracy.
+  ;; This means minimal -- and ideally zero -- configuration with absolutely no
+  ;;stored indexes (TAGS) or persistent background processes.
+  :ensure t
+  :hook
+  (xref-backend-functions . dumb-jump-xref-activate))
+
+(use-package vertico
+  ;; Vertico provides a performant and minimalistic vertical completion UI
+  ;; based on the default completion system.  By reusing the built-in
+  ;; facilities, Vertico achieves full compatibility with built-in Emacs
+  ;; completion commands and completion tables.
+  :ensure t
+  :init
+  (vertico-mode)
+  ;; (setq vertico-scroll-margin 0)     ; Different scroll margin
+  ;; (setq vertico-count 20)            ; Show more candidates
+  ;; (setq vertico-resize t)            ; Grow and shrink the Vertico minibuffer
+  (setq vertico-cycle t)                ; Optionally enable cycling for `vertico-next' and `vertico-previous'.
+  )
+
+(use-package corfu
+  ;; Corfu enhances in-buffer completion with a small completion popup.
+  ;; The current candidates are shown in a popup below or above the
+  ;; point.  The candidates can be selected by moving up and down.
+  ;; Corfu is the minimalistic in-buffer completion counterpart of the
+  ;; Vertico minibuffer UI.
+  :ensure t
+  :init
+  (global-corfu-mode)
+  ;; Optional customizations
+  :custom
+  (corfu-auto t)                 ; Enable auto completion
+  (corfu-cycle t)                ; Enable cycling for `corfu-next/previous'
+  (corfu-preselect 'prompt)      ; Preselect the prompt
+  ;; (corfu-separator ?\s)          ; Orderless field separator
+  ;; (corfu-quit-at-boundary nil)   ; Never quit at completion boundary
+  ;; (corfu-quit-no-match nil)      ; Never quit, even if there is no match
+  ;; (corfu-preview-current nil)    ; Disable current candidate preview
+  ;; (corfu-on-exact-match nil)     ; Configure handling of exact matches
+  ;; (corfu-scroll-margin 5)        ; Use scroll margin
+
+  ;; Enable Corfu only for certain modes.
+  ;; :hook ((prog-mode . corfu-mode)
+  ;;        (shell-mode . corfu-mode)
+  ;;        (eshell-mode . corfu-mode))
+
+  ;; Recommended: Enable Corfu globally.
+  ;; This is recommended since Dabbrev can be used globally (M-/).
+  ;; See also `corfu-exclude-modes'.
+  :bind
+  (:map corfu-map
+        ("TAB" . corfu-next)
+        ([tab] . corfu-next)
+        ("S-TAB" . corfu-previous)
+        ([backtab] . corfu-previous)))
+
+(use-package orderless
+  ;; This package provides an `orderless' completion style that divides
+  ;; the pattern into components (space-separated by default), and
+  ;; matches candidates that match all of the components in any order.
+  :ensure t
+  :init
+  ;; Configure a custom style dispatcher (see the Consult wiki)
+  ;; (setq orderless-style-dispatchers '(+orderless-consult-dispatch orderless-affix-dispatch)
+  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+  (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        completion-category-overrides '((file (styles partial-completion)))))
+
+(use-package marginalia
+  ;; Enrich existing commands with completion annotations
+  :ensure t
+  :defer t
+  :init
+  (marginalia-mode))
+
+(use-package better-jumper
+  ;; Better-jumper is configurable jump list implementation for Emacs that can be used
+  ;; to easily jump back to previous locations. That provides optional integration with
+  ;; evil.
+  :ensure t
+  :init
+  (better-jumper-mode 1)
+  :config
+  ;;(setq better-jumper-context 'window)
+  ;;(setq better-jumper-new-window-behavior 'copy)
+  ;;(setq better-jumper-max-length 100)
+  (setq better-jumper-add-jump-behavior 'replace)
+
+  (defun my-jump-advice (oldfun &rest args)
+    (let ((old-pos (point)))
+      (apply oldfun args)
+      (when (> (abs (- (line-number-at-pos old-pos)
+                       (line-number-at-pos (point))))
+               1)
+        (better-jumper-set-jump old-pos))))
+
+  ;; jump scenarios
+  ;; use M-x view-lossage
+  (advice-add 'vertico-exit :around #'my-jump-advice) ; may handle jumps from M-x commands
+  (advice-add 'exit-minibuffer :around #'my-jump-advice) ; handles goto-line
+  (advice-add 'mouse-set-point :around #'my-jump-advice)
+
+  :bind
+  ("M-<left>" . 'better-jumper-jump-backward)
+  ("M-<right>" . 'better-jumper-jump-forward))
+
+;;;;; Useful to switch between window / file layouts.
+;; C-x r w ;; save a layout
+;; C-x r j ;; load a layout
 
 (provide 'init-ui.el)
 ;;; init-ui.el ends here
