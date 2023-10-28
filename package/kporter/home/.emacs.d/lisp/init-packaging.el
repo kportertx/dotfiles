@@ -2,10 +2,10 @@
 ;;; Commentary:
 ;;; Code:
 
-(setq package-archives
-      '(("melpa" . "https://melpa.org/packages/")
-		("elpa" . "https://elpa.gnu.org/packages/")
-		("nongnu" . "https://elpa.nongnu.org/nongnu/")))
+(setopt package-archives
+  '(("melpa" . "https://melpa.org/packages/")
+     ("elpa" . "https://elpa.gnu.org/packages/")
+     ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
 
 (unless (bound-and-true-p package--initialized)
   (package-initialize))
@@ -33,25 +33,14 @@
 (require 'use-package)
 (use-package use-package
   :ensure nil
-  :init
+  :custom
   ;; Disable deprecation warnings about cl. The cl library has been deprecated,
   ;; but lots of packages still use it.
-  (setq byte-compile-warnings '(cl-functions))
+  (byte-compile-warnings '(cl-functions))
   ;; Don’t pop up a buffer to warn me about deprecations and other minor issues.
-  ;; (setq warning-minimum-level :emergency)
-  :config
-  (setq use-package-compute-statistics t) ;; for profiling, M-x use-package-report
+  ;; (warning-minimum-level :emergency)
+  (use-package-compute-statistics t) ;; for profiling, M-x use-package-report
   )
-
-(use-package use-package-ensure-system-package
-  ;; If an Emacs package relies on the installation of a system package,
-  ;; install that package.
-  :ensure t
-  :demand t
-  :custom
-  (system-packages-package-manager 'apt))
-
-(use-package bind-key :ensure nil :demand t) ;; if you use any :bind variant
 
 (use-package auto-package-update
   ;; This package provides functionality for automatically updating your Emacs
@@ -67,6 +56,18 @@
   :config
   (auto-package-update-maybe)
   (auto-package-update-at-time "09:00"))
+
+(use-package bind-key :ensure nil :demand t) ;; if you use any :bind variant
+(use-package delight :ensure t :demand t)  ;; Use delighting for modes
+(use-package diminish :ensure t :demand t) ;; if you use :diminish
+
+(use-package use-package-ensure-system-package
+  ;; If an Emacs package relies on the installation of a system package,
+  ;; install that package.
+  :ensure t
+  :demand t
+  :custom
+  (system-packages-package-manager 'apt))
 
 (provide 'init-packaging.el)
 ;;; init-packaging.el ends here

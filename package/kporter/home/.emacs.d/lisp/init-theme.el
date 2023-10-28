@@ -2,57 +2,77 @@
 ;;; Commentary:
 ;;; Code:
 
-(use-package color-theme-sanityinc-tomorrow
+(use-package all-the-icons
+  ;; This package is a utility for using and formatting various Icon
+  ;; fonts within Emacs.
+  ;; M-x all-the-icons-install-fonts
   :ensure t
   :demand t
-  ;; These five color themes are designed for use with Emacs' built-in
-  ;; theme support in Emacs 24. However, they also work with older Emacs
-  ;; versions, in which case color-theme.el is required.
   :init
-  (setq custom-safe-themes t) ; warning will not go away
-  (load-theme 'sanityinc-tomorrow-eighties))
+  (unless (find-font (font-spec :name "all-the-icons"))
+    (all-the-icons-install-fonts t))
+  :if
+  (display-graphic-p))
 
-(use-package hl-line
-  :ensure nil
+(use-package all-the-icons-completion
+  ;;  Add icons to completion candidates.
+  :ensure t
+  :after (marginalia all-the-icons)
+  :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
   :init
-  (global-hl-line-mode) )
+  (all-the-icons-completion-mode))
 
 (use-package doom-modeline
   ;; This package offers a fancy and fast mode-line inspired by minimalism design.
   :ensure t
   :demand t
-  :init
+  :custom
   ;; If non-nil, cause imenu to see `doom-modeline' declarations.
   ;; This is done by adjusting `lisp-imenu-generic-expression' to
   ;; include support for finding `doom-modeline-def-*' forms.
   ;; Must be set before loading doom-modeline.
-  (setq doom-modeline-support-imenu t)
-  (setq doom-modeline-height 25)
-  (setq doom-modeline-buffer-file-name-style 'relative-from-project)
+  (doom-modeline-support-imenu t)
+  (doom-modeline-height 25)
+  (doom-modeline-buffer-file-name-style 'relative-from-project)
   ;; Whether display the buffer encoding.
-  (setq doom-modeline-buffer-encoding nil)
-  (setq doom-modeline-project-detection 'projectile)
+  (doom-modeline-buffer-encoding nil)
+  (doom-modeline-project-detection 'auto)
+  (doom-modeline-indent-info t)
   :config
   (set-face-attribute 'doom-modeline-evil-insert-state nil :foreground "orange")
-  :hook (after-init . doom-modeline-mode))
+  :hook
+  (after-init . doom-modeline-mode))
 
-(use-package diminish :ensure t :demand t) ;; if you use :diminish
-(use-package delight :ensure t :demand t)  ;; Use delighting for modes
+(use-package hl-line
+  ;; Provides a local minor mode (toggled by M-x hl-line-mode) and
+  ;; a global minor mode (toggled by M-x global-hl-line-mode) to
+  ;; highlight, on a suitable terminal, the line on which point is.
+  :ensure nil
+  :commands hl-line-mode
+  :hook
+  (prog-mode . hl-line-mode))
 
-(use-package all-the-icons
-  ;; M-x all-the-icons-install-fonts
+(use-package modus-themes
+  ;; The Modus themes conform with the highest standard for
+  ;; color-contrast accessibility between background and foreground
+  ;; values (WCAG AAA).
   :ensure t
-  :demand t
-  :config
-  (unless (find-font (font-spec :name "all-the-icons"))
-	(all-the-icons-install-fonts t))
-  :if
-  (display-graphic-p))
+  :straight (modus-themes :type git :host gitlab :repo "protesilaos/modus-themes")
+  :bind
+  ("C-c SPC t t" . modus-themes-toggle)
+  :custom
+  (modus-themes-italic-constructs t)
+  (modus-themes-bold-constructs t)
+  (modus-themes-variable-pitch-ui t)
+  (modus-themes-mixed-fonts t)
+  (modus-themes-to-toggle '(modus-operandi-tinted modus-vivendi-tinted))
+  :init
+  (load-theme 'modus-vivendi-tinted :no-confirm))
 
 (use-package nerd-icons
-  :ensure t
   ;; M-x nerd-icons-install-fonts
-  :config
+  :ensure t
+  :init
   (unless (find-font (font-spec :name "Symbols Nerd Font Mono"))
     (nerd-icons-install-fonts t))
   :if

@@ -14,10 +14,12 @@
 
 (require 'init-ai.el)
 (require 'init-editing.el)
+(require 'init-formatting.el)
 (require 'init-git.el)
 (require 'init-lsp.el)
 (require 'init-persistence.el)
 (require 'init-prog.el)
+(require 'init-project.el)
 (require 'init-term.el)
 (require 'init-ui.el)
 
