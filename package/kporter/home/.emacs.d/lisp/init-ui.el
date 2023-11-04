@@ -38,6 +38,10 @@
   :ensure t
   :init
   (centaur-tabs-mode t)
+  :custom
+  (centaur-tabs-set-icon t)
+  (centaur-tabs-gray-out-icons 'buffer)
+  (centaur-tabs-set-modified-marker t)
   :bind
   ("C-c SPC p" . centaur-tabs-backward)
   ("C-c SPC n" . centaur-tabs-forward))
