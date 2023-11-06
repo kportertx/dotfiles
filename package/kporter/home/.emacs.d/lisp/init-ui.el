@@ -313,6 +313,7 @@
 (use-package indent-bars
   ;; indent-bars highlights indentation with configurable font-lock
   ;; based vertical bars, using stipples.  The color and appearance
+  :after (editorconfig)
   :ensure t
   :straight (indent-bars :type git :host github :repo "jdtsmith/indent-bars")
   :custom
