@@ -43,15 +43,6 @@
   :hook
   (after-init . doom-modeline-mode))
 
-(use-package hl-line
-  ;; Provides a local minor mode (toggled by M-x hl-line-mode) and
-  ;; a global minor mode (toggled by M-x global-hl-line-mode) to
-  ;; highlight, on a suitable terminal, the line on which point is.
-  :ensure nil
-  :commands hl-line-mode
-  :hook
-  (prog-mode . hl-line-mode))
-
 (use-package modus-themes
   ;; The Modus themes conform with the highest standard for
   ;; color-contrast accessibility between background and foreground

@@ -7,17 +7,30 @@
   :config
   (global-treesit-auto-mode))
 
-(use-package c++-mode :ensure nil :commands c++-mode)
-(use-package c-mode :ensure nil :commands c-mode)
+(use-package clojure-ts-mode :ensure t :demand t)
 (use-package elisp-mode
   :ensure nil
   :config
   (use-package elisp-lint :ensure t :demand t))
 (use-package go-mode :ensure t :defer t :commands go-mode)
+
+(use-package lsp-java
+  :ensure t
+  :defer t
+  :hook
+  (java-mode-hook . lsp))
 (use-package java-mode :ensure nil :defer t :commands java-mode)
 (use-package js2-mode :ensure t :defer t :commands js2-mode)
 (use-package lua-mode :ensure t :defer t :commands lua-mode)
+
 (use-package python-mode :ensure t :defer t :commands python-mode)
+(use-package lsp-pyright
+  :ensure t
+  :hook
+  (python-mode . (lambda ()
+                   (require 'lsp-pyright)
+                   (lsp-deferred))))
+
 (use-package web-mode :ensure t :defer t :commands web-mode)
 (use-package rust-mode :ensure t :defer t :commands rust-mode)
 (use-package rustic
@@ -27,6 +40,12 @@
   (rustic-format-on-save t)
   :hook
   (rustic-mode-hook . rk/rustic-mode-hook))
+
+;; (use-package tla-mode
+;;   :straight (tla-mode :type git :host github :repo "ratish-punnoose/tla-mode")
+;;   :ensure t
+;;   :defer t
+;;   :mode "\.tla$")
 
 ;; Docker
 (use-package docker :ensure t :bind ("C-c d" . docker))

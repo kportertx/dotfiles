@@ -26,9 +26,7 @@
   :custom
   (cua-enable-modeline-indications t)
   :bind
-  ("<f12>" . cua-mode)
-  :init
-  (cua-mode))
+  ("<f12>" . cua-mode))
 
 (use-package display-fill-column-indicator
   :ensure t
@@ -37,14 +35,14 @@
   :hook
   (prog-mode . display-fill-column-indicator-mode))
 
-(use-package dumb-jump
-  ;; Dumb Jump is an Emacs "jump to definition" package with support for 50+
-  ;; programming languages that favors "just working" over speed or accuracy.
-  ;; This means minimal -- and ideally zero -- configuration with absolutely no
-  ;; stored indexes (TAGS) or persistent background processes.
-  :ensure t
-  :hook
-  (xref-backend-functions . dumb-jump-xref-activate))
+;; (use-package dumb-jump
+;;   ;; Dumb Jump is an Emacs "jump to definition" package with support for 50+
+;;   ;; programming languages that favors "just working" over speed or accuracy.
+;;   ;; This means minimal -- and ideally zero -- configuration with absolutely no
+;;   ;; stored indexes (TAGS) or persistent background processes.
+;;   :ensure t
+;;   :hook
+;;   (xref-backend-functions . dumb-jump-xref-activate))
 
 (use-package expand-region
   ;; Expand region increases the selected region by semantic units. Just keep
@@ -54,22 +52,6 @@
   ("C-=" . er/expand-region)
   ("C--" . er/contract-region))
 
-(use-package flycheck
-  ;; Flycheck is a modern on-the-fly syntax checking extension for GNU Emacs,
-  ;; intended as replacement for the older Flymake extension which is part of GNU
-  ;; Emacs.
-  :ensure t
-  :demand t
-  :init
-  (global-flycheck-mode))
-
-(use-package flyspell
-  ;; Flyspell is a minor Emacs mode performing on-the-fly spelling
-  ;; checking.
-  :ensure t
-  :defer t
-  :diminish)
-
 (use-package hl-todo
   ;; Highlight TODO and similar keywords in comments and strings.
   :ensure t
@@ -77,23 +59,15 @@
   (hl-todo-keyword-faces
     '(("TODO" . "magenta")
        ("FIXME" . "magenta")
-       ("\\?\\?\\?+" . "magenta")
        ("WIP" . "lime green")
        ("WORK" . "lime green")
        ("NEXT" . "lime green")
        ("NOTE" . "purple")
        ("WAIT" . "orange")
-       ("KLUDGE" . "orange")
        ("HACK" . "orange")
        ("TEMP" . "orange")
        ("XXX+" . "orange")
        ("DONE" . "gray")))
-  :bind
-  (:map hl-todo-mode-map
-    ("M-s h i" . hl-todo-insert)
-    ("M-s h C-p" . hl-todo-previous)
-    ("M-s h C-n" . hl-todo-next)
-    ("M-s h o" . hl-todo-occur))
   :hook
   (prog-mode . hl-todo-mode))
 

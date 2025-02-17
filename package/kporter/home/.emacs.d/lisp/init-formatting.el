@@ -2,14 +2,6 @@
 ;;; Commentary:
 ;;; Code:
 
-;; (use-package format-all
-;;   ;; Lets you auto-format source code in many languages using the same
-;;   ;; command for all languages, instead of learning a different Emacs
-;;   ;; package and formatting command for each language.
-;;   :ensure t
-;;   :hook
-;;   (prog-mode . format-all-mode))
-
 (use-package editorconfig
   :ensure t
   :custom

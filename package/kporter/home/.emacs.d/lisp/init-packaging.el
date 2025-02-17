@@ -48,14 +48,7 @@
   ;; multiple machines and tend to forget to manually update packages from time to
   ;; time.
   :ensure t
-  :demand t
-  :custom
-  (auto-package-update-interval 7)
-  (auto-package-update-prompt-before-update t)
-  (auto-package-update-hide-results t)
-  :config
-  (auto-package-update-maybe)
-  (auto-package-update-at-time "09:00"))
+  :demand t)
 
 (use-package bind-key :ensure nil :demand t) ;; if you use any :bind variant
 (use-package delight :ensure t :demand t)  ;; Use delighting for modes

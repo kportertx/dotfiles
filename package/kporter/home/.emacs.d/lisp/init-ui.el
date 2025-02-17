@@ -34,18 +34,6 @@
   ("M-<left>" . 'better-jumper-jump-backward)
   ("M-<right>" . 'better-jumper-jump-forward))
 
-(use-package centaur-tabs
-  :ensure t
-  :init
-  (centaur-tabs-mode t)
-  :custom
-  (centaur-tabs-set-icon t)
-  (centaur-tabs-gray-out-icons 'buffer)
-  (centaur-tabs-set-modified-marker t)
-  :bind
-  ("C-c SPC p" . centaur-tabs-backward)
-  ("C-c SPC n" . centaur-tabs-forward))
-
 (use-package consult
   ;; Consult implements a set of `consult-<thing>' commands, which aim to
   ;; improve the way you use Emacs.  The commands are founded on
@@ -310,23 +298,24 @@
   (completion-category-defaults nil)
   (completion-category-overrides '((file (styles partial-completion)))))
 
-(use-package indent-bars
-  ;; indent-bars highlights indentation with configurable font-lock
-  ;; based vertical bars, using stipples.  The color and appearance
-  :after (editorconfig)
-  :ensure t
-  :straight (indent-bars :type git :host github :repo "jdtsmith/indent-bars")
-  :custom
-  (indent-bars-color '(highlight :face-bg t :blend 0.15))
-  (indent-bars-pattern ".")
-  (indent-bars-width-frac 0.3)
-  (indent-bars-pad-frac 0.3)
-  (indent-bars-zigzag nil)
-  (indent-bars-color-by-depth '(:regexp "outline-\\([0-9]+\\)" :blend 1)) ; blend=1: blend with BG only
-  (indent-bars-highlight-current-depth '(:blend 0.5)) ; pump up the BG blend on current
-  (indent-bars-display-on-blank-lines t)
-  :hook
-  (prog-mode . indent-bars-mode))
+;; Not working with tabs
+;; (use-package indent-bars
+;;   ;; indent-bars highlights indentation with configurable font-lock
+;;   ;; based vertical bars, using stipples.  The color and appearance
+;;   :ensure t
+;;   :straight (indent-bars :type git :host github :repo "jdtsmith/indent-bars")
+;;   :custom
+;;   (indent-bars-treesit-support t)
+;;   (indent-bars-color '(highlight :face-bg t :blend 0.15))
+;;   (indent-bars-pattern ".")
+;;   (indent-bars-width-frac 0.3)
+;;   (indent-bars-pad-frac 0.3)
+;;   (indent-bars-zigzag nil)
+;;   (indent-bars-color-by-depth '(:regexp "outline-\\([0-9]+\\)" :blend 1)) ; blend=1: blend with BG only
+;;   (indent-bars-highlight-current-depth '(:blend 0.5)) ; pump up the BG blend on current
+;;   (indent-bars-display-on-blank-lines t)
+;;   :hook
+;;   (prog-mode . indent-bars-mode))
 
 (use-package rainbow-delimiters
   ;; Rainbow-delimiters is a "rainbow parentheses"-like mode which highlights
@@ -417,6 +406,18 @@
   ;; (vertico-resize t)            ; Grow and shrink the Vertico minibuffer
   (vertico-cycle t)                ; Optionally enable cycling for `vertico-next' and `vertico-previous'.
   )
+
+(use-package volatile-highlights
+  :ensure t
+  :config
+  (volatile-highlights-mode t))
+
+;; (use-package why-this
+;;   :ensure t
+;;   :straight (why-this :type git :host codeberg
+;;               :repo "akib/emacs-why-this.git")
+;;   :init
+;;   (global-why-this-mode))
 
 (use-package winum
   ;; Window numbers for Emacs: Navigate your windows and frames using numbers.

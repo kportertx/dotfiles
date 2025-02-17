@@ -11,16 +11,6 @@
   :hook
   (after-change-major-mode-hook . auto-revert-mode))
 
-;; (use-package desktop
-;;   :demand t
-;;   :bind
-;;   ("C-M-s-k" . desktop-clear)
-;;   :config
-;;   (setq desktop-restore-frames t)
-;;   (setq desktop-restore-in-current-display t)
-;;   (setq desktop-restore-forces-onscreen nil)
-;;   (desktop-save-mode 1))
-
 (use-package no-littering
   ;; Help keeping ~/.config/emacs clean.
   :ensure t

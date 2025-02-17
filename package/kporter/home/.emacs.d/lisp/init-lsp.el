@@ -14,8 +14,8 @@
   (lsp-eldoc-enable-hover nil)
   (lsp-eldoc-render-all nil)
   (lsp-enable-imenu t)
-  (lsp-enable-indentation nil)         ; nil didn't fix 'editorconfig'.
-  (lsp-enable-on-type-formatting nil)  ; nil didn't fix 'editorconfig'.
+  ;; (lsp-enable-indentation nil)         ; nil didn't fix 'editorconfig'.
+  ;; (lsp-enable-on-type-formatting nil)  ; nil didn't fix 'editorconfig'.
   (lsp-enable-links t)
   (lsp-enable-symbol-highlighting t)
   (lsp-enable-xref t)
@@ -31,12 +31,12 @@
   (lsp-signature-render-documentation t)
   :init
   (add-hook 'prog-mode-hook
-            (lambda ()
-              (unless (derived-mode-p
-                       'emacs-lisp-mode
-                       'hcl-mode
-                       'makefile-mode)
-                (lsp-deferred))))
+    (lambda ()
+      (unless (derived-mode-p
+                'emacs-lisp-mode
+                'hcl-mode
+                'makefile-mode)
+        (lsp-deferred))))
   :commands lsp)
 
 (use-package lsp-ui
