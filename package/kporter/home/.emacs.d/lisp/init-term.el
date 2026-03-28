@@ -79,5 +79,5 @@
   (vterm-max-scrollback 100000)
   (vterm-clear-scrollback-when-clearing t))
 
-(provide 'init-term.el)
+(provide 'init-term)
 ;;; init-term.el ends here

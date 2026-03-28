@@ -56,5 +56,5 @@
   (lsp-ui-sideline-enable nil)
   (lsp-ui-sideline-show-hover nil))
 
-(provide 'init-lsp.el)
+(provide 'init-lsp)
 ;;; init-lsp.el ends here

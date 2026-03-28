@@ -62,5 +62,5 @@
   :custom
   (system-packages-package-manager 'apt))
 
-(provide 'init-packaging.el)
+(provide 'init-packaging)
 ;;; init-packaging.el ends here

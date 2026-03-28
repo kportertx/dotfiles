@@ -42,5 +42,5 @@
   (put 'kill-ring 'history-length 300)
   (savehist-mode))
 
-(provide 'init-persistence.el)
+(provide 'init-persistence)
 ;;; init-persistence.el ends here

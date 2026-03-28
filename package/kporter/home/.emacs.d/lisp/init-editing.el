@@ -17,19 +17,8 @@
   :bind
   ("C-:" . avy-goto-char))
 
-(use-package cua-base
-  ;; This is the CUA package which provides a complete emulation of the
-  ;; standard CUA key bindings (Motif/Windows/Mac GUI) for selecting and
-  ;; manipulating the region where S-<movement> is used to highlight &
-  ;; extend the region.
-  :ensure nil
-  :custom
-  (cua-enable-modeline-indications t)
-  :bind
-  ("<f12>" . cua-mode))
-
 (use-package display-fill-column-indicator
-  :ensure t
+  :ensure nil
   :init
   (setq-default fill-column  80)
   :hook
@@ -98,7 +87,7 @@
 
 (use-package subword
   ;; Treating terms in CamelCase symbols as separate words makes editing.
-  :ensure t
+  :ensure nil
   :demand t
   :init (global-subword-mode 1))
 
@@ -133,7 +122,7 @@
   ;; should pop up.
   :ensure t
   :bind
-  ("C-u" . vundo))
+  ("C-c u" . vundo))
 
-(provide 'init-editing.el)
+(provide 'init-editing)
 ;;; init-editing.el ends here

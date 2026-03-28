@@ -18,7 +18,7 @@
   :ensure t
   :defer t
   :hook
-  (java-mode-hook . lsp))
+  (java-mode . lsp))
 (use-package java-mode :ensure nil :defer t :commands java-mode)
 (use-package js2-mode :ensure t :defer t :commands js2-mode)
 (use-package lua-mode :ensure t :defer t :commands lua-mode)
@@ -37,9 +37,7 @@
   :ensure t
   :defer t
   :custom
-  (rustic-format-on-save t)
-  :hook
-  (rustic-mode-hook . rk/rustic-mode-hook))
+  (rustic-format-on-save t))
 
 ;; (use-package tla-mode
 ;;   :straight (tla-mode :type git :host github :repo "ratish-punnoose/tla-mode")
@@ -62,6 +60,6 @@
 (use-package yaml-mode :ensure t :defer t :commands yaml-mode)
 (use-package logview :ensure t :defer t :commands logview-mode)
 
-(provide 'init-prog.el)
+(provide 'init-prog)
 ;;; init-prog.el ends here
 

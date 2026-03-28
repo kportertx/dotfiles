@@ -31,8 +31,8 @@
   (advice-add 'xref-find-def :around #'my-jump-advice)        ; FIXME - working?
   (advice-add 'xref-find-references :around #'my-jump-advice) ; FIXME - working?
   :bind
-  ("M-<left>" . 'better-jumper-jump-backward)
-  ("M-<right>" . 'better-jumper-jump-forward))
+  ("M-<left>" . better-jumper-jump-backward)
+  ("M-<right>" . better-jumper-jump-forward))
 
 (use-package consult
   ;; Consult implements a set of `consult-<thing>' commands, which aim to
@@ -107,9 +107,11 @@
   ;; Optionally configure the register formatting. This improves the register
   ;; preview for `consult-register', `consult-register-load',
   ;; `consult-register-store' and the Emacs built-ins.
-  (register-preview-delay 0.5 register-preview-function #'consult-register-format)
+  (register-preview-delay 0.5)
+  (register-preview-function #'consult-register-format)
   ;; Use Consult to select xref locations with preview
-  (xref-show-xrefs-function #'consult-xref xref-show-definitions-function #'consult-xref)
+  (xref-show-xrefs-function #'consult-xref)
+  (xref-show-definitions-function #'consult-xref)
   ;; The narrowing key.
   (consult-narrow-key "<") ;; "C-+"
   :init
@@ -228,10 +230,13 @@
   :ensure t
   :bind
   (("C-." . embark-act)         ;; pick some comfortable binding
-    ("M-." . embark-dwim)
-    ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
+   ("M-." . embark-dwim)
+   ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
   :custom
-  (embark-verbose-indicator-display-action '(display-buffer-below-selected))
+  (embark-indicators '(embark-mixed-indicator
+                       embark-highlight-indicator
+                       embark-isearch-highlight-indicator))
+  (embark-mixed-indicator-delay 1)
   ;; Optionally replace the key help with a completing-read interface
   (prefix-help-command #'embark-prefix-help-command)
   :init
@@ -242,9 +247,12 @@
   :config
   ;; Hide the mode line of the Embark live/completions buffers
   (add-to-list 'display-buffer-alist
-    '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
-       nil
-       (window-parameters (mode-line-format . none)))))
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none))))
+  ;; Add agent-shell actions for regions
+  (define-key embark-region-map (kbd "g") #'agent-shell-send-region)
+  (define-key embark-region-map (kbd "G") #'agent-shell-send-region-to))
 
 (use-package embark-consult
   ;; This package provides integration between Embark and Consult.  The package
@@ -260,9 +268,9 @@
   :ensure t
   :commands (helpful-callable helpful-variable helpful-key)
   :bind
-  ("C-h f" . 'helpful-callable)
-  ("C-h v" . 'helpful-variable)
-  ("C-h k" . 'helpful-key))
+  ("C-h f" . helpful-callable)
+  ("C-h v" . helpful-variable)
+  ("C-h k" . helpful-key))
 
 (use-package imenu-anywhere
   ;; `imenu-anywhere` provides navigation for imenu tags across all buffers that
@@ -441,5 +449,5 @@
 ;; C-x r w ;; save a layout
 ;; C-x r j ;; load a layout
 
-(provide 'init-ui.el)
+(provide 'init-ui)
 ;;; init-ui.el ends here

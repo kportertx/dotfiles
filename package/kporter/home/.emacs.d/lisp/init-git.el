@@ -7,7 +7,6 @@
   :ensure t
   :custom
   (git-gutter+-disabled-modes '(org-mode))
-  :bind
   :config
   ;; Move between local changes
   (global-set-key (kbd "M-<up>") 'git-gutter+-previous-hunk)
@@ -17,5 +16,5 @@
 
 (use-package magit :ensure t)
 
-(provide 'init-git.el)
+(provide 'init-git)
 ;;; init-git.el ends here

@@ -12,13 +12,8 @@
   ("DEL" . backward-delete-char)
   ("M-_" . undo-redo)
   ("C-/" . comment-or-uncomment-region)
-  ("C-+" . text-scale-increase)
-  ("C--" . text-scale-decrease)
-  ("C-x C-b" . 'ibuffer)
-  ("C-s" . 'isearch-forward-regexp)
-  ("C-r" . 'isearch-backward-regexp)
-  ("C-M-s" . 'isearch-forward)
-  ("C-M-r" . 'isearch-backward)
+  ("C-x C-b" . ibuffer)
+  ("C-s" . isearch-forward-regexp)
   :init
   (setq-default fill-column 80)                 ; Set fill column to 80 rather than 70, in all cases.
   (setq-default indent-tabs-mode nil)
@@ -46,7 +41,7 @@
   :custom
   (custom-file (locate-user-emacs-file "custom-vars.el"))
 
-  (completion--cycle-threshold 3)           ; TAB cycle if there are only few candidates
+  (completion-cycle-threshold 3)           ; TAB cycle if there are only few candidates
   (confirm-kill-processes nil)              ; Stop confirming the killing of processes
   (create-lockfiles nil)                    ; lock files kill `npm start'
   (cursor-type 'bar)                        ; Line-style cursor similar to other text editors
@@ -87,8 +82,7 @@
   (version-control t)                       ; Use version numbers for backup files.
 
   :hook
-  (before-save-hook . diff-delete-trailing-whitespace)
   (text-mode-hook . auto-fill-mode))
 
-(provide 'init-defaults.el)
+(provide 'init-defaults)
 ;;; init-defaults.el ends here

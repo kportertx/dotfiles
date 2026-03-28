@@ -21,8 +21,7 @@
 (setq gc-cons-threshold 1073741824
       gc-cons-percentage 0.6)
 
-;; Write any customizations to a temp file so they are discarded.
-(setq custom-file (make-temp-file "custom-" nil ".el"))
+;; custom-file is set in init-defaults.el to "custom-vars.el".
 
 ;; Faster to disable these here (before they've been initialized)
 (push '(menu-bar-lines . 0) default-frame-alist)

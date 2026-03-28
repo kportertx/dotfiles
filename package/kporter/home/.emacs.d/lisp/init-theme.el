@@ -69,5 +69,5 @@
   :if
   (display-graphic-p))
 
-(provide 'init-theme.el)
+(provide 'init-theme)
 ;;; init-theme.el ends here

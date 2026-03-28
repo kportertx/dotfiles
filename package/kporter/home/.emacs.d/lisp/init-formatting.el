@@ -22,5 +22,5 @@
   :hook
   (prog-mode . whitespace-mode))
 
-(provide 'init-formatting.el)
+(provide 'init-formatting)
 ;;; init-formatting.el ends here
