@@ -14,22 +14,16 @@
   (use-package elisp-lint :ensure t :demand t))
 (use-package go-mode :ensure t :defer t :commands go-mode)
 
-(use-package lsp-java
+(use-package eglot-java
   :ensure t
   :defer t
   :hook
-  (java-mode . lsp))
+  (java-mode . eglot-java-mode))
 (use-package java-mode :ensure nil :defer t :commands java-mode)
 (use-package js2-mode :ensure t :defer t :commands js2-mode)
 (use-package lua-mode :ensure t :defer t :commands lua-mode)
 
 (use-package python-mode :ensure t :defer t :commands python-mode)
-(use-package lsp-pyright
-  :ensure t
-  :hook
-  (python-mode . (lambda ()
-                   (require 'lsp-pyright)
-                   (lsp-deferred))))
 
 (use-package web-mode :ensure t :defer t :commands web-mode)
 (use-package rust-mode :ensure t :defer t :commands rust-mode)
@@ -37,6 +31,7 @@
   :ensure t
   :defer t
   :custom
+  (rustic-lsp-client 'eglot)
   (rustic-format-on-save t))
 
 ;; (use-package tla-mode
