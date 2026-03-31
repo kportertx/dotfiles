@@ -1,18 +1,18 @@
-;;; Package --- Summary
+;;; Package --- Summary -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;;; Code:
 
-(use-package git-gutter+
-  ;; View, stage and revert Git changes straight from the buffer.
+(use-package diff-hl
   :ensure t
-  :custom
-  (git-gutter+-disabled-modes '(org-mode))
   :config
-  ;; Move between local changes
-  (global-set-key (kbd "M-<up>") 'git-gutter+-previous-hunk)
-  (global-set-key (kbd "M-<down>") 'git-gutter+-next-hunk)
+  (global-diff-hl-mode)
+  (diff-hl-flydiff-mode)
   :hook
-  (prog-mode . git-gutter+-mode))
+  (magit-pre-refresh . diff-hl-magit-pre-refresh)
+  (magit-post-refresh . diff-hl-magit-post-refresh)
+  :bind
+  ("M-<up>" . diff-hl-previous-hunk)
+  ("M-<down>" . diff-hl-next-hunk))
 
 (use-package magit :ensure t)
 

@@ -1,9 +1,9 @@
-;;; Package --- Summary
+;;; Package --- Summary -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;;; Code:
 
 (use-package eglot
-  :ensure t
+  :ensure nil
   :custom
   (eglot-autoshutdown t)
   (eglot-extend-to-xref t)
@@ -27,7 +27,8 @@
     ("C-c l f" . eglot-format)
     ("C-c l d" . eldoc)
     ("C-c l h" . eldoc-doc-buffer)
-    ("C-c l o" . eglot-code-action-organize-imports)))
+    ("C-c l o" . eglot-code-action-organize-imports)
+    ("C-c l i" . eglot-inlay-hints-mode)))
 
 (provide 'init-lsp)
 ;;; init-lsp.el ends here

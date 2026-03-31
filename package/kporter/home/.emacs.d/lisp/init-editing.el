@@ -1,4 +1,4 @@
-;;; Package --- Summary
+;;; Package --- Summary -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;;; Code:
 
@@ -19,8 +19,6 @@
 
 (use-package display-fill-column-indicator
   :ensure nil
-  :init
-  (setq-default fill-column  80)
   :hook
   (prog-mode . display-fill-column-indicator-mode))
 
@@ -80,10 +78,8 @@
   ("C-;" . iedit-mode)) ; select all occurnces at-point for edit
 
 (use-package pcre2el
-  ;; `pcre2el' or `rxt' (RegeXp Translator or RegeXp Tools) is a utility
-  ;; for working with regular expressions in Emacs, based on a
   :ensure t
-  :demand t)
+  :defer t)
 
 (use-package subword
   ;; Treating terms in CamelCase symbols as separate words makes editing.

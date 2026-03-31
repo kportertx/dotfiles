@@ -18,8 +18,10 @@
 
 	submodules-update = "!f() { git submodule sync --recursive && git submodule update --init --recursive; }; f"
 	pr = "!pr() { git fetch $1 pull/$2/head:pull_request_$2; git checkout pull_request_$2; }; pr"
+    base = "!base() { git merge-base $(git branch --show-current) master $1; }; base"
 [branch]
 	autoSetupMerge = always
+    sort = -committerdate
 
 [color]
 	ui = auto
@@ -36,13 +38,32 @@
 [color "diff"]
 	whitespace = red reverse
 
+[column]
+    ui = auto
+
+[commit]
+    verbose = true
+
 [core]
 	excludesfile = ~/.gitignore
+	editor = emacs
+
+# [diff]
+# 	algorithm = histogram
+#     colorMoved = plain
+#     mnemonicPrefix = true
+#     renames = true    
+
+[fetch]
+	prune = true
+    pruneTags = true
+    all = true
 
 [grep]
 	lineNumber = true
 
 [merge]
+    # conflictstyle = zdiff3
 	tool = meld
 
 [mergetool.meld]
@@ -55,7 +76,13 @@
 
 [push]
 	default = current
+    autoSetupRemote = true
 	followTags = true
+
+[rebase]
+    autoSquash = true
+    autoStash = true
+    updateRefs = true
 
 [submodule]
 	fetchJobs = 4
@@ -63,42 +90,3 @@
 [user]
 	name = Kevin Porter
 	email = kporter@aerospike.com
-[core]
-	editor = emacs
-[fetch]
-	prune = true
-[diff]
-	algorithm = histogram
-[safe]
-	directory = /home/kporter/projects/core/bcc
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/blazesym
-	directory = /home/kporter/projects/core/bcc/src/cc/libbpf
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/bpftool
-	directory = /home/kporter/projects/core/bcc
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/blazesym
-	directory = /home/kporter/projects/core/bcc/src/cc/libbpf
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/bpftool
-	directory = /home/kporter/projects/core/bcc
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/blazesym
-	directory = /home/kporter/projects/core/bcc/src/cc/libbpf
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/bpftool
-	directory = /home/kporter/projects/core/bcc
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/blazesym
-	directory = /home/kporter/projects/core/bcc/src/cc/libbpf
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/bpftool
-	directory = /home/kporter/projects/core/bcc
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/blazesym
-	directory = /home/kporter/projects/core/bcc/src/cc/libbpf
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/bpftool
-	directory = /home/kporter/projects/core/bcc
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/blazesym
-	directory = /home/kporter/projects/core/bcc/src/cc/libbpf
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/bpftool
-	directory = /home/kporter/projects/core/bcc
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/blazesym
-	directory = /home/kporter/projects/core/bcc/src/cc/libbpf
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/bpftool
-	directory = /home/kporter/projects/core/bcc
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/blazesym
-	directory = /home/kporter/projects/core/bcc/src/cc/libbpf
-	directory = /home/kporter/projects/core/bcc/libbpf-tools/bpftool

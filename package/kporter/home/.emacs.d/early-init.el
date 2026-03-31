@@ -59,7 +59,7 @@
           (lambda ()
             (setq file-name-handler-alist file-name-handler-alist-old)))
 
-;; Disable `package' in favor of `straight'.
+;; Defer package.el initialization to init-packaging.el.
 (setq package-enable-at-startup nil)
 
 (provide 'early-init)

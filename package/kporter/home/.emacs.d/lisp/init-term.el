@@ -1,24 +1,15 @@
-;;; Package --- Summary
+;;; Package --- Summary -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;;; Code:
 
 (use-package eat
-  ;; Eat's name self-explanatory, it stands for "Emulate A Terminal".
-  ;; Eat is a terminal emulator.  It can run most (if not all)
-  ;; full-screen terminal programs, including Emacs.
+  ;; Eat (Emulate A Terminal) is a pure-Elisp terminal emulator.
+  ;; Replaces vterm without requiring native compilation of libvterm.
   :ensure t
-  :straight
-  (eat :type git
-    :host codeberg
-    :repo "akib/emacs-eat"
-    :files ("*.el" ("term" "term/*.el") "*.texi"
-             "*.ti" ("terminfo/e" "terminfo/e/*")
-             ("terminfo/65" "terminfo/65/*")
-             ("integration" "integration/*")
-             (:exclude ".dir-locals.el" "*-tests.el"))))
+  :bind
+  ("C-c t" . eat))
 
 (use-package eshell
-  ;; https://github.com/howardabrams/dot-files/blob/master/emacs-eshell.org
   :after eat
   :custom
   (tramp-default-method "ssh")
@@ -49,35 +40,16 @@
       (eshell/alias "d" "dired $1"))))
 
 (use-package eshell-syntax-highlighting
-  ;; Highlights commands as the user types to validate commands and syntax.
   :after eshell
   :ensure t
   :config
   (eshell-syntax-highlighting-global-mode +1))
 
 (use-package eshell-git-prompt
-  ;; This package provides some themes of Emacs Shell (Eshell) prompt.
   :after eshell
   :ensure t
   :config
   (eshell-git-prompt-use-theme 'powerline))
-
-(use-package multi-vterm
-  ;; Managing multiple vterm buffers in Emacs
-  :ensure t
-  :bind
-  ("C-c t" . multi-vterm))
-
-(use-package vterm
-  ;; Emacs-libvterm (vterm) is fully-fledged terminal emulator based on an
-  ;; external library (libvterm) loaded as a dynamic module.
-  :ensure t
-  :demand t
-  :ensure-system-package
-  (libtool . libtool-bin)
-  :custom
-  (vterm-max-scrollback 100000)
-  (vterm-clear-scrollback-when-clearing t))
 
 (provide 'init-term)
 ;;; init-term.el ends here

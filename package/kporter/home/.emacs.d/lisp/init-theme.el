@@ -1,26 +1,13 @@
-;;; Package --- Summary
+;;; Package --- Summary -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;;; Code:
 
-(use-package all-the-icons
-  ;; This package is a utility for using and formatting various Icon
-  ;; fonts within Emacs.
-  ;; M-x all-the-icons-install-fonts
+(use-package nerd-icons-completion
   :ensure t
-  :demand t
+  :after marginalia
+  :hook (marginalia-mode . nerd-icons-completion-marginalia-setup)
   :init
-  (unless (find-font (font-spec :name "all-the-icons"))
-    (all-the-icons-install-fonts t))
-  :if
-  (display-graphic-p))
-
-(use-package all-the-icons-completion
-  ;;  Add icons to completion candidates.
-  :ensure t
-  :after (marginalia all-the-icons)
-  :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
-  :init
-  (all-the-icons-completion-mode))
+  (nerd-icons-completion-mode))
 
 (use-package doom-modeline
   ;; This package offers a fancy and fast mode-line inspired by minimalism design.
@@ -46,9 +33,8 @@
 (use-package modus-themes
   ;; The Modus themes conform with the highest standard for
   ;; color-contrast accessibility between background and foreground
-  ;; values (WCAG AAA).
-  :ensure t
-  :straight (modus-themes :type git :host gitlab :repo "protesilaos/modus-themes")
+  ;; values (WCAG AAA).  Built-in since Emacs 28.
+  :ensure nil
   :bind
   ("C-c SPC t t" . modus-themes-toggle)
   :custom

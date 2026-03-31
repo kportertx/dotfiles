@@ -1,10 +1,11 @@
-;;; Package --- Summary
+;;; Package --- Summary -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;;; Code:
 
 (use-package emacs
   :ensure nil
   :config
+  (server-start)
   (global-unset-key [(control wheel-up)])       ; Prevent accidental brush with trackpad
   (global-unset-key [(control wheel-down)])     ; Prevent accidental brush with trackpad
   :bind
@@ -21,12 +22,7 @@
   (setq-default show-trailing-whitespace nil)   ; Enabling shows up in terminals - leaving it disabled.
   (setq-default tab-width 4)
 
-  ;; Ensure we are always using UTF-8 encoding.
   (set-language-environment "UTF-8")
-  (set-charset-priority 'unicode)
-  (set-terminal-coding-system 'utf-8)
-  (set-keyboard-coding-system 'utf-8)
-  (set-selection-coding-system 'utf-8)
   (prefer-coding-system 'utf-8)
 
   (column-number-mode)                          ; Display column (and line) number in mode line
@@ -57,6 +53,7 @@
   (read-process-output-max (* 1024 1024))   ; Increase the amount of data which Emacs reads from the process
   (save-interprogram-paste-before-kill t)
   (scroll-conservatively 101)               ; Improve performance while scrolling.
+  (scroll-margin 1)                         ; Default; dynamically updated to 20% below.
   (sentence-end-double-space nil)
   (tab-always-indent 'complete)             ; Enable indentation+completion using the TAB key.
   (tabify-regexp "^\t* [ \t]+")             ; Make `tabify' and `untabify' only affect indentation. Not tabs/spaces in the middle of a line.
@@ -73,7 +70,6 @@
   (auto-save-list-file-prefix "~/.emacs.d/autosave/")
   (backup-by-copying t)                     ; Don't clobber symlinks.
   (backup-by-copying-when-linked t)         ; Don't break multiple hardlinks.
-  (create-lockfiles nil)                    ; Don't create '#file-name' flockfiles in $PWD.
   (delete-old-versions t)
   (kept-new-versions 10)                    ; Automatic backup file housekeeping.
   (kept-old-versions 4)
@@ -83,6 +79,16 @@
 
   :hook
   (text-mode-hook . auto-fill-mode))
+
+;; Dynamic scroll margin: 20% of window height
+(defun my-set-window-scroll-margin (win &optional _start)
+  "Set `scroll-margin' to 20% of WIN height."
+  (with-selected-window win
+    (setq-local scroll-margin (max 1 (/ (window-body-height win) 5)))))
+
+(add-hook 'window-configuration-change-hook
+          (lambda () (my-set-window-scroll-margin (selected-window))))
+(add-hook 'window-scroll-functions #'my-set-window-scroll-margin)
 
 (provide 'init-defaults)
 ;;; init-defaults.el ends here

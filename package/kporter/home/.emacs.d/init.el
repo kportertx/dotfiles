@@ -3,7 +3,6 @@
 ;;; Code:
 
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
-(defvar flycheck-emacs-lisp-load-path 'inherit)
 
 (require 'init-packaging)
 
