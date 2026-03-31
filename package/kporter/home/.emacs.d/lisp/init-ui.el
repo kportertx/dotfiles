@@ -1,4 +1,4 @@
-;;; Package --- Summary
+;;; Package --- Summary -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;;; Code:
 
@@ -189,10 +189,21 @@
   :ensure t
   :init
   (dirvish-override-dired-mode)
+  :config
+  ;; Guard against orphaned dirvish buffers crashing the mode-line.
+  ;; When a dirvish session is killed but its dired buffers linger,
+  ;; (dirvish-curr) returns nil and the mode-line eval errors on every
+  ;; redisplay cycle, causing significant UI lag.
+  (advice-add 'dirvish-curr :filter-return
+              (lambda (dv)
+                (or dv
+                    (when (derived-mode-p 'dired-mode)
+                      (kill-buffer (current-buffer))
+                      nil))))
   :custom
   (dirvish-hide-details nil)
   (dirvish-attributes
-    '(all-the-icons collapse file-size file-time subtree-state vc-states))
+    '(nerd-icons collapse file-size file-time subtree-state vc-states))
   (dired-listing-switches
     "-l --all --human-readable --group-directories-first --no-group")
   :bind
@@ -222,6 +233,36 @@
   (prog-mode       . turn-on-eldoc-mode)
   (cider-repl-mode . turn-on-eldoc-mode))
 
+(defun embark-which-key-indicator ()
+  "An embark indicator that displays keymaps using which-key.
+The which-key help message will show the type and value of the
+current target followed by an ellipsis if there are further
+targets."
+  (lambda (&optional keymap targets prefix)
+    (if (null keymap)
+        (which-key--hide-popup-ignore-command)
+      (which-key--show-keymap
+       (if (eq (plist-get (car targets) :type) 'embark-become)
+           "Become"
+         (format "Act on %s '%s'%s"
+                 (plist-get (car targets) :type)
+                 (embark--truncate-target (plist-get (car targets) :target))
+                 (if (cdr targets) "\u2026" "")))
+       (if prefix
+           (pcase (lookup-key keymap prefix 'accept-default)
+             ((and (pred keymapp) km) km)
+             (_ (key-binding prefix 'accept-default)))
+         keymap)
+       nil nil t (lambda (binding)
+                   (not (string-suffix-p "-map" (cdr binding))))))))
+
+(defun embark-hide-which-key-indicator (fn &rest args)
+  "Hide the which-key indicator when using the completing-read prompter."
+  (which-key--hide-popup-ignore-command)
+  (let ((embark-indicators
+         (remq #'embark-which-key-indicator embark-indicators)))
+    (apply fn args)))
+
 (use-package embark
   ;; This package provides a sort of right-click contextual menu for
   ;; Emacs, accessed through the `embark-act' command (which you should
@@ -233,10 +274,9 @@
    ("M-." . embark-dwim)
    ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
   :custom
-  (embark-indicators '(embark-mixed-indicator
+  (embark-indicators '(embark-which-key-indicator
                        embark-highlight-indicator
                        embark-isearch-highlight-indicator))
-  (embark-mixed-indicator-delay 1)
   ;; Optionally replace the key help with a completing-read interface
   (prefix-help-command #'embark-prefix-help-command)
   :init
@@ -245,6 +285,8 @@
   (add-hook 'eldoc-documentation-functions #'embark-eldoc-first-target)
   ;; (setq eldoc-documentation-strategy #'eldoc-documentation-compose-eagerly)
   :config
+  (advice-add #'embark-completing-read-prompter
+              :around #'embark-hide-which-key-indicator)
   ;; Hide the mode line of the Embark live/completions buffers
   (add-to-list 'display-buffer-alist
                '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
@@ -281,6 +323,19 @@
   :defer t
   :bind ("C-c C-SPC" . imenu-anywhere))
 
+(use-package indent-bars
+  ;; indent-bars highlights indentation with vertical bar characters.
+  :ensure t
+  :custom
+  (indent-bars-prefer-character t)
+  (indent-bars-treesit-support t)
+  (indent-bars-color '(highlight :face-bg t :blend 0.2))
+  (indent-bars-color-by-depth '(:regexp "outline-\\([0-9]+\\)" :blend 1))
+  (indent-bars-highlight-current-depth '(:blend 0.5))
+  (indent-bars-display-on-blank-lines t)
+  :hook
+  (prog-mode . indent-bars-mode))
+
 (use-package marginalia
   ;; Enrich existing commands with completion annotations
   :ensure t
@@ -306,24 +361,19 @@
   (completion-category-defaults nil)
   (completion-category-overrides '((file (styles partial-completion)))))
 
-;; Not working with tabs
-;; (use-package indent-bars
-;;   ;; indent-bars highlights indentation with configurable font-lock
-;;   ;; based vertical bars, using stipples.  The color and appearance
-;;   :ensure t
-;;   :straight (indent-bars :type git :host github :repo "jdtsmith/indent-bars")
-;;   :custom
-;;   (indent-bars-treesit-support t)
-;;   (indent-bars-color '(highlight :face-bg t :blend 0.15))
-;;   (indent-bars-pattern ".")
-;;   (indent-bars-width-frac 0.3)
-;;   (indent-bars-pad-frac 0.3)
-;;   (indent-bars-zigzag nil)
-;;   (indent-bars-color-by-depth '(:regexp "outline-\\([0-9]+\\)" :blend 1)) ; blend=1: blend with BG only
-;;   (indent-bars-highlight-current-depth '(:blend 0.5)) ; pump up the BG blend on current
-;;   (indent-bars-display-on-blank-lines t)
-;;   :hook
-;;   (prog-mode . indent-bars-mode))
+(use-package project
+  :custom
+  (project-switch-commands
+   '((consult-ripgrep "Grep" ?g)
+     (project-find-file "Find file" ?f)
+     (project-switch-to-buffer "Buffer" ?b)
+     (project-dired "Dired" ?d)
+     (magit-project-status "Magit" ?m)))
+  :bind-keymap
+  ("C-x p" . project-prefix-map)
+  :bind
+  (:map project-prefix-map
+   ("g" . consult-ripgrep)))
 
 (use-package rainbow-delimiters
   ;; Rainbow-delimiters is a "rainbow parentheses"-like mode which highlights
@@ -419,6 +469,12 @@
   :ensure t
   :config
   (volatile-highlights-mode t))
+
+(use-package which-key
+  :ensure nil
+  :demand t
+  :config
+  (which-key-mode))
 
 ;; (use-package why-this
 ;;   :ensure t
