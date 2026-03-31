@@ -1,6 +1,8 @@
 # Reset env variables
 source /etc/environment
 
+source ${HOME}/.config/agnosticrc/agnosticrc.d/01_path.sh
+
 # If not running interactively, don't do anything
 case $- in
     *i*) ;;

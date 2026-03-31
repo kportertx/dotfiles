@@ -24,3 +24,7 @@ alias ...="cd ../.."
 alias ....="cd ../../.."
 alias .....="cd ../../../.."
 alias -- -="cd -"
+
+alias which='type -p'
+
+alias emacs='emacsclient -c -a ""'
