@@ -1,27 +1,30 @@
 # Reset env variables
-source /etc/environment
+. /etc/environment
 
-source ${HOME}/.config/agnosticrc/agnosticrc.d/01_path.sh
+# Drop-in scripts are prefixed <level><order>_ : tens digit = run level,
+# units digit = order within the level.
+#   0  always       -- env for every shell, incl. the non-interactive login
+#                      shell and the Emacs daemon (MYSHELL, PATH, repos, EDITOR)
+#   1  interactive  -- shell UX (history, completion, aliases, prompt)
+# ~/.profile sources this so the GDM/i3 session inherits level-0 env; the
+# interactive levels stay quiet under the non-interactive dash login shell.
+case $- in *i*) max_level=1 ;; *) max_level=0 ;; esac
 
-# If not running interactively, don't do anything
-case $- in
-    *i*) ;;
-      *) return;;
-esac
-
-# load additional scirpts
-for script in ${HOME}/.config/agnosticrc/agnosticrc.d/*.sh
+for script in "${HOME}"/.config/agnosticrc/agnosticrc.d/*.sh
 do
-    source ${script}
+    name=${script##*/}
+    level=${name%"${name#?}"}             # first char = level digit
+    case "$level" in [0-9]) ;; *) level=9 ;; esac
+    [ "$level" -le "$max_level" ] && . "$script"
 done
 
 # load custom settings
-local_scripts_path=${HOME}/.local/agnosticrc/agnosticrc.d
+local_scripts_path="${HOME}/.local/agnosticrc/agnosticrc.d"
 
-if [[ -d "$local_scripts_path" ]]
+if [ -d "$local_scripts_path" ]
 then
-  for script in $(find ${local_scripts_path}/ -maxdepth 1 -type f -name "*.sh" | sort)
+  for script in $(find "${local_scripts_path}/" -maxdepth 1 -type f -name "*.sh" | sort)
   do
-    source ${script}
+    . "${script}"
   done
 fi
