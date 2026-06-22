@@ -1,8 +1,8 @@
 - clean:
     ~/.config/agnosticrc/agnosticrc.d:
 - link:
-    ~/.config/agnosticrc/agnosticrc.d/02_starship.sh:
-      path: package/agnosticrc/starship/home/.config/agnosticrc/agnosticrc.d/02_starship.sh
+    ~/.config/agnosticrc/agnosticrc.d/13_starship.sh:
+      path: package/agnosticrc/starship/home/.config/agnosticrc/agnosticrc.d/13_starship.sh
       create: true
       relink: true
       force: true

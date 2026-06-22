@@ -25,23 +25,23 @@
       create: true
       relink: true
       force: true
-    ~/.config/agnosticrc/agnosticrc.d/01_alias.sh:
-      path: package/agnosticrc/base/home/.config/agnosticrc/agnosticrc.d/01_alias.sh
-      create: true
-      relink: true
-      force: true
-    ~/.config/agnosticrc/agnosticrc.d/01_completion.sh:
-      path: package/agnosticrc/base/home/.config/agnosticrc/agnosticrc.d/01_completion.sh
-      create: true
-      relink: true
-      force: true
-    ~/.config/agnosticrc/agnosticrc.d/01_opts.sh:
-      path: package/agnosticrc/base/home/.config/agnosticrc/agnosticrc.d/01_opts.sh
-      create: true
-      relink: true
-      force: true
     ~/.config/agnosticrc/agnosticrc.d/01_path.sh:
       path: package/agnosticrc/base/home/.config/agnosticrc/agnosticrc.d/01_path.sh
+      create: true
+      relink: true
+      force: true
+    ~/.config/agnosticrc/agnosticrc.d/10_opts.sh:
+      path: package/agnosticrc/base/home/.config/agnosticrc/agnosticrc.d/10_opts.sh
+      create: true
+      relink: true
+      force: true
+    ~/.config/agnosticrc/agnosticrc.d/11_completion.sh:
+      path: package/agnosticrc/base/home/.config/agnosticrc/agnosticrc.d/11_completion.sh
+      create: true
+      relink: true
+      force: true
+    ~/.config/agnosticrc/agnosticrc.d/12_alias.sh:
+      path: package/agnosticrc/base/home/.config/agnosticrc/agnosticrc.d/12_alias.sh
       create: true
       relink: true
       force: true

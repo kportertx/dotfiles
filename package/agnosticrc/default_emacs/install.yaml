@@ -1,8 +1,8 @@
 - clean:
     ~/.config/agnosticrc/agnosticrc.d:
 - link:
-    ~/.config/agnosticrc/agnosticrc.d/05_editor.sh:
-      path: package/agnosticrc/default_emacs/home/.config/agnosticrc/agnosticrc.d/05_editor.sh
+    ~/.config/agnosticrc/agnosticrc.d/02_editor.sh:
+      path: package/agnosticrc/default_emacs/home/.config/agnosticrc/agnosticrc.d/02_editor.sh
       create: true
       relink: true
       force: true
