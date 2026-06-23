@@ -44,6 +44,9 @@ floating_modifier $mod
 # focus_wrapping yes|no|force|workspace
 focus_wrapping workspace # don't implicitly switch workspaces
 
+# lock the screen only (background processes keep running)
+bindsym $mod+x exec i3lock --color=112233
+# lock the screen and suspend
 bindsym $mod+Shift+x exec i3lock --color=112233 && systemctl suspend
 
 # start a terminal
