@@ -19,9 +19,14 @@
     (let ((old-pos (point)))
       (apply oldfun args)
       (when (> (abs (- (line-number-at-pos old-pos)
-                      (line-number-at-pos (point))))
-              1)
+                       (line-number-at-pos (point))))
+               1)
         (better-jumper-set-jump old-pos))))
+  (defun my-record-jump-before-buffer-switch (buffer-or-name &rest _)
+    "Record current position in better-jumper before switching to a different buffer."
+    (let ((target (ignore-errors (get-buffer buffer-or-name))))
+      (when (and target (not (eq target (current-buffer))))
+        (better-jumper-set-jump))))
   :config
   ;; jump scenarios
   ;; use M-x view-lossage
@@ -30,9 +35,12 @@
   (advice-add 'mouse-set-point :around #'my-jump-advice)
   (advice-add 'xref-find-def :around #'my-jump-advice)        ; FIXME - working?
   (advice-add 'xref-find-references :around #'my-jump-advice) ; FIXME - working?
+  (advice-add 'switch-to-buffer :before #'my-record-jump-before-buffer-switch)
+  (advice-add 'pop-to-buffer :before #'my-record-jump-before-buffer-switch)
   :bind
   ("M-<left>" . better-jumper-jump-backward)
-  ("M-<right>" . better-jumper-jump-forward))
+  ("M-<right>" . better-jumper-jump-forward)
+  )
 
 (use-package consult
   ;; Consult implements a set of `consult-<thing>' commands, which aim to
@@ -56,7 +64,7 @@
     ([remap Info-search] . consult-info)
     ;; C-x bindings in `ctl-x-map'
     ("C-x M-:" . consult-complex-command)     ;; orig. repeat-complex-command
-    ("C-x b" . consult-buffer)                ;; orig. switch-to-buffer
+    ;; ("C-x b" . consult-buffer)             ;; left at Emacs default switch-to-buffer
     ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
     ("C-x 5 b" . consult-buffer-other-frame)  ;; orig. switch-to-buffer-other-frame
     ("C-x r b" . consult-bookmark)            ;; orig. bookmark-jump
@@ -119,6 +127,7 @@
   ;; This adds thin lines, sorting and hides the mode line of the window.
   (advice-add #'register-preview :override #'consult-register-window)
   :config
+
   ;; Optionally configure preview. The default value
   ;; is 'any, such that any key triggers the preview.
   ;; (setq consult-preview-key 'any)
@@ -127,11 +136,12 @@
   ;; For some commands and buffer sources it is useful to configure the
   ;; :preview-key on a per-command basis using the `consult-customize' macro.
   (consult-customize
+    consult-buffer :sort nil
     consult-theme :preview-key '(:debounce 0.2 any)
     consult-ripgrep consult-git-grep consult-grep
     consult-bookmark consult-recent-file consult-xref
-    consult--source-bookmark consult--source-file-register
-    consult--source-recent-file consult--source-project-recent-file
+    consult-source-bookmark consult-source-file-register
+    consult-source-recent-file consult-source-project-recent-file
     ;; :preview-key "M-."
     :preview-key '(:debounce 0.4 any))
   )
@@ -294,7 +304,10 @@ targets."
                  (window-parameters (mode-line-format . none))))
   ;; Add agent-shell actions for regions
   (define-key embark-region-map (kbd "g") #'agent-shell-send-region)
-  (define-key embark-region-map (kbd "G") #'agent-shell-send-region-to))
+  (define-key embark-region-map (kbd "G") #'agent-shell-send-region-to)
+  ;; Add eglot actions for identifiers
+  (define-key embark-identifier-map (kbd "c") #'eglot-show-call-hierarchy)
+  (define-key embark-identifier-map (kbd "T") #'eglot-show-type-hierarchy))
 
 (use-package embark-consult
   ;; This package provides integration between Embark and Consult.  The package
@@ -501,9 +514,103 @@ targets."
   ("M-7" . winum-select-window-7)
   ("M-8" . winum-select-window-8))
 
+(winner-mode 1)
+
 ;;;;; Useful to switch between window / file layouts.
 ;; C-x r w ;; save a layout
 ;; C-x r j ;; load a layout
+
+(use-package read-aloud
+  :ensure t
+  :bind
+  ("C-c r" . read-aloud-this)
+  :config
+  ;; Piper voice model — installed options in ~/.local/share/piper/:
+  ;;   ~/.local/share/piper/en_US-ryan-medium.onnx    ; previous default
+  ;;   ~/.local/share/piper/en_US-lessac-medium.onnx
+  ;;   ~/.local/share/piper/glados_piper_medium.onnx  ; current
+  ;; GLaDOS downloaded from https://huggingface.co/DavesArmoury/GLaDOS_TTS
+  ;; (glados_piper_medium.onnx + glados_piper_medium.onnx.json under /resolve/main/).
+  ;; All are 22050 Hz mono, so the aplay flags below stay unchanged.
+  (defvar kp/read-aloud-piper-model
+    "~/.local/share/piper/glados_piper_medium.onnx"
+    "Path to the Piper .onnx voice model used by the read-aloud engine.")
+
+  (setq read-aloud-engines
+        `("piper"
+          (cmd "bash"
+               args ("-c" ,(format "uv run piper --length_scale 0.67 -m %s --output-raw 2>/dev/null | aplay -r 22050 -f S16_LE -c 1 -t raw -q"
+                                   kp/read-aloud-piper-model)))
+          ,@read-aloud-engines))
+  (setq read-aloud-engine "piper")
+
+  ;; Don't pronounce Markdown syntax (asterisks, backticks, #, links, ...).
+  ;; `read-aloud--string' is the single chokepoint that feeds the TTS engine,
+  ;; so filtering its text argument strips syntax from every read-aloud command
+  ;; at once. On-screen highlighting is unaffected (it is computed from buffer
+  ;; positions, not from this string). Underscores become spaces so code-like
+  ;; identifiers (e.g. safe_lst) are spoken as words ("safe lst") instead of
+  ;; being crammed into one fast-mumbled token by the neural TTS.
+  (defun kp/read-aloud-strip-markdown (str)
+    "Return STR with common Markdown syntax removed, for cleaner speech."
+    (if (not (stringp str))
+        str
+      (let ((s str))
+        ;; images ![alt](url) -> alt ; links [text](url) and [text][ref] -> text
+        (setq s (replace-regexp-in-string "!?\\[\\([^][]*\\)\\](\\(?:[^()]*\\))" "\\1" s))
+        (setq s (replace-regexp-in-string "\\[\\([^][]*\\)\\]\\[[^][]*\\]" "\\1" s))
+        (setq s (replace-regexp-in-string "\\[\\([^][]*\\)\\]" "\\1" s))
+        ;; fenced code blocks: drop the ``` fence lines (incl. language tag)
+        (setq s (replace-regexp-in-string "^[ \t]*`\\{3,\\}[^\n]*$" "" s))
+        ;; inline/remaining code: drop the backticks, keep the content
+        (setq s (replace-regexp-in-string "`+" "" s))
+        ;; bold/italic asterisks and ~~strikethrough~~
+        (setq s (replace-regexp-in-string "\\*+" "" s))
+        (setq s (replace-regexp-in-string "~~" "" s))
+        ;; line-leading heading #, blockquote >, and list bullets (- or +)
+        (setq s (replace-regexp-in-string "^[ \t]*#+[ \t]*" "" s))
+        (setq s (replace-regexp-in-string "^[ \t]*>+[ \t]*" "" s))
+        (setq s (replace-regexp-in-string "^[ \t]*[-+][ \t]+" "" s))
+        ;; horizontal rules (--- ___ ===) -> nothing
+        (setq s (replace-regexp-in-string "^[ \t]*\\([-_=]\\)\\1\\1+[ \t]*$" "" s))
+        ;; table pipes -> spaces
+        (setq s (replace-regexp-in-string "|" " " s))
+        ;; underscores -> spaces, so identifiers read as words (safe_lst -> "safe lst")
+        (setq s (replace-regexp-in-string "_" " " s))
+        ;; comparison/arrow operators -> spoken words (longest match first), so
+        ;; "lut < safe_lst" reads "lut less than safe lst" rather than mumbling.
+        (setq s (replace-regexp-in-string "<=" " less than or equal to " s))
+        (setq s (replace-regexp-in-string ">=" " greater than or equal to " s))
+        (setq s (replace-regexp-in-string "!=" " not equal to " s))
+        (setq s (replace-regexp-in-string "==" " equals " s))
+        (setq s (replace-regexp-in-string "->" " to " s))
+        (setq s (replace-regexp-in-string "<" " less than " s))
+        (setq s (replace-regexp-in-string ">" " greater than " s))
+        (setq s (replace-regexp-in-string "=" " equals " s))
+        ;; section sign -> word (docs use "§9" etc.)
+        (setq s (replace-regexp-in-string "§" " section " s))
+        ;; intra-word . : / (file.c:1234, paths, version numbers) -> spaces, so
+        ;; they read as separate words rather than one mangled token. Looped to
+        ;; catch chains like a.b.c (Emacs regexps have no lookahead). Sentence
+        ;; punctuation is untouched: it is followed by a space, not an alnum.
+        (let ((prev ""))
+          (while (not (string= prev s))
+            (setq prev s)
+            (setq s (replace-regexp-in-string
+                     "\\([[:alnum:]]\\)[.:/]\\([[:alnum:]]\\)" "\\1 \\2" s))))
+        ;; brackets/parens TTS stumbles on -> spaces (sentence . , ; : ! ? kept)
+        (setq s (replace-regexp-in-string "[][(){}]" " " s))
+        ;; collapse runs of horizontal whitespace left by the substitutions
+        ;; (keep newlines: the TTS engine uses them for pauses)
+        (setq s (replace-regexp-in-string "[ \t]\\{2,\\}" " " s))
+        s)))
+
+  (defun kp/read-aloud--strip-markdown-args (args)
+    "Advice: strip Markdown from the text argument of `read-aloud--string'."
+    (cons (kp/read-aloud-strip-markdown (car args)) (cdr args)))
+
+  (advice-add 'read-aloud--string :filter-args
+              #'kp/read-aloud--strip-markdown-args))
 
 (provide 'init-ui)
 ;;; init-ui.el ends here

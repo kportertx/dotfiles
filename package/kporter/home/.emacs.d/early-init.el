@@ -30,10 +30,17 @@
 
 ;; Give the frame basic coloring while waiting for the theme to load. The main
 ;; purpose of this is to not blind me when it's dark by flashing a screen full
-;; of white. These colors are from doom-one.
-(set-face-attribute 'default nil :background "#282c34" :foreground "#bbc2cf")
+;; of white. These colors are from modus-vivendi-tinted.
+(set-face-attribute 'default nil :background "#0d0e1c" :foreground "#fbf1f0")
+;; Pin the default font to an explicit pixel size. Emacs derives font sizes
+;; from the X server's core-screen DPI, which on this multi-monitor layout is a
+;; bogus 203 DPI (3760px / 470mm). A normal 11pt request therefore renders at
+;; ~31px and looks huge, while GTK apps (which size text from GNOME's DPI) look
+;; fine. A `pixelsize' bypasses the point->pixel DPI conversion entirely, so the
+;; font stays put regardless of the reported DPI.
+(push '(font . "DejaVu Sans Mono:pixelsize=17") default-frame-alist)
 ;; Default frame settings. This is actually maximized, not full screen.
-(push '(fullscreen . maximized) initial-frame-alist)
+(push '(fullscreen . maximized) default-frame-alist)
 (push '(ns-transparent-titlebar . t) default-frame-alist)
 
 ;; Resizing the Emacs frame can be a terribly expensive part of changing the

@@ -10,6 +10,23 @@
   :hook
   (emacs-lisp-mode . aggressive-indent-mode))
 
+(use-package crux
+  :ensure t
+  :bind
+  ("C-a" . crux-move-beginning-of-line)
+  ("C-c d" . crux-duplicate-current-line-or-region)
+  ("C-c M-d" . crux-duplicate-and-comment-current-line-or-region)
+  ("C-S-<return>" . crux-smart-open-line-above)
+  ("S-<return>" . crux-smart-open-line)
+  ("C-c D" . crux-delete-file-and-buffer)
+  ("C-c R" . crux-rename-file-and-buffer))
+
+(use-package easy-kill
+  :ensure t
+  :bind
+  ([remap kill-ring-save] . easy-kill)
+  ([remap mark-sexp] . easy-mark))
+
 (use-package avy
   ;; With Avy, you can move point to any position in Emacs – even in a
   ;; different window – using very few keystrokes.

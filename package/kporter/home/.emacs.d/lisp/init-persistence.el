@@ -42,5 +42,12 @@
   (put 'kill-ring 'history-length 300)
   (savehist-mode))
 
+(use-package super-save
+  :ensure t
+  :custom
+  (super-save-auto-save-when-idle t)
+  :config
+  (super-save-mode))
+
 (provide 'init-persistence)
 ;;; init-persistence.el ends here

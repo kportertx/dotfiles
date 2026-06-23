@@ -5,7 +5,9 @@
 (use-package emacs
   :ensure nil
   :config
-  (server-start)
+  (require 'server)
+  (unless (server-running-p)
+    (server-start))
   (global-unset-key [(control wheel-up)])       ; Prevent accidental brush with trackpad
   (global-unset-key [(control wheel-down)])     ; Prevent accidental brush with trackpad
   :bind
@@ -14,6 +16,7 @@
   ("M-_" . undo-redo)
   ("C-/" . comment-or-uncomment-region)
   ("C-x C-b" . ibuffer)
+  ("C-S-v" . yank)
   ("C-s" . isearch-forward-regexp)
   :init
   (setq-default fill-column 80)                 ; Set fill column to 80 rather than 70, in all cases.
@@ -24,6 +27,13 @@
 
   (set-language-environment "UTF-8")
   (prefer-coding-system 'utf-8)
+
+  ;; Use an explicit pixel size rather than a point :height. On this
+  ;; multi-monitor X setup the stacked displays make Emacs derive a bogus
+  ;; ~203 DPI (full vertical pixel span / one monitor's mm height), which
+  ;; doubles point-based fonts on the ~109 DPI ultrawide. A fixed pixelsize
+  ;; is DPI-independent, so new daemon frames stop coming up oversized.
+  (add-to-list 'default-frame-alist '(font . "DejaVu Sans Mono:pixelsize=16"))
 
   (column-number-mode)                          ; Display column (and line) number in mode line
   (delete-selection-mode t)                     ; Start writing straight after deletion
@@ -54,6 +64,8 @@
   (save-interprogram-paste-before-kill t)
   (scroll-conservatively 101)               ; Improve performance while scrolling.
   (scroll-margin 1)                         ; Default; dynamically updated to 20% below.
+  (mouse-wheel-tilt-scroll t)               ; Enable left/right tilt scrolling.
+  (mouse-wheel-flip-direction t)            ; Flip if it scrolls the "wrong" way.
   (sentence-end-double-space nil)
   (tab-always-indent 'complete)             ; Enable indentation+completion using the TAB key.
   (tabify-regexp "^\t* [ \t]+")             ; Make `tabify' and `untabify' only affect indentation. Not tabs/spaces in the middle of a line.
@@ -89,6 +101,17 @@
 (add-hook 'window-configuration-change-hook
           (lambda () (my-set-window-scroll-margin (selected-window))))
 (add-hook 'window-scroll-functions #'my-set-window-scroll-margin)
+
+
+;; Defer GC during minibuffer use
+(defun my-minibuffer-setup-hook ()
+  (setq gc-cons-threshold (* 512 1024 1024)))
+
+(defun my-minibuffer-exit-hook ()
+  (setq gc-cons-threshold 800000))
+
+(add-hook 'minibuffer-setup-hook #'my-minibuffer-setup-hook)
+(add-hook 'minibuffer-exit-hook #'my-minibuffer-exit-hook)
 
 (provide 'init-defaults)
 ;;; init-defaults.el ends here

@@ -18,13 +18,15 @@
 (require 'init-prog)
 (require 'init-term)
 (require 'init-ui)
+(require 'init-org)
 
 ;; Garbage Collection ;;
+(setq gc-cons-threshold 100000000)
 
 (use-package gcmh
-  :defer t
+  :ensure t
   :config
-  (gcmh-mode))
+  (gcmh-mode 1))
 
 (provide 'init)
 ;;; init.el ends here

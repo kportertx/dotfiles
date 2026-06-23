@@ -3,7 +3,7 @@
 ;;; Code:
 
 (use-package eglot
-  :ensure nil
+  :ensure t
   :custom
   (eglot-autoshutdown t)
   (eglot-extend-to-xref t)
@@ -28,7 +28,16 @@
     ("C-c l d" . eldoc)
     ("C-c l h" . eldoc-doc-buffer)
     ("C-c l o" . eglot-code-action-organize-imports)
-    ("C-c l i" . eglot-inlay-hints-mode)))
+    ("C-c l i" . eglot-inlay-hints-mode)
+    ("C-c l c" . eglot-show-call-hierarchy)
+    ("C-c l t" . eglot-show-type-hierarchy)))
+
+(use-package consult-eglot
+  :ensure t
+  :after (consult eglot)
+  :bind
+  (:map eglot-mode-map
+    ("C-c l s" . consult-eglot)))
 
 (provide 'init-lsp)
 ;;; init-lsp.el ends here

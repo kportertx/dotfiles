@@ -14,6 +14,11 @@
   ("M-<up>" . diff-hl-previous-hunk)
   ("M-<down>" . diff-hl-next-hunk))
 
+(use-package git-timemachine
+  :ensure t
+  :bind
+  ("C-c T" . git-timemachine))
+
 (use-package magit :ensure t)
 
 (provide 'init-git)

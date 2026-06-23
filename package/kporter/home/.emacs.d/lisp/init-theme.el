@@ -34,17 +34,53 @@
   ;; The Modus themes conform with the highest standard for
   ;; color-contrast accessibility between background and foreground
   ;; values (WCAG AAA).  Built-in since Emacs 28.
+  ;; Syntax highlighting follows https://tonsky.me/blog/syntax-highlighting/
+  ;; - Only highlight: strings, constants, comments, definitions, punctuation
+  ;; - Unhighlight: keywords, types, builtins, variable/function references
+  ;; - Max 4-5 colors, no bold/italic, reserve red for errors
   :ensure nil
   :bind
   ("C-c SPC t t" . modus-themes-toggle)
   :custom
-  (modus-themes-italic-constructs t)
-  (modus-themes-bold-constructs t)
+  (modus-themes-italic-constructs nil)
+  (modus-themes-bold-constructs nil)
   (modus-themes-variable-pitch-ui t)
   (modus-themes-mixed-fonts t)
   (modus-themes-to-toggle '(modus-operandi-tinted modus-vivendi-tinted))
+  (modus-themes-common-palette-overrides
+   '(;; Strings: green
+     (string green-warmer)
+     ;; Constants/numbers: purple
+     (constant magenta-cooler)
+     ;; Comments: bright yellow (treat as important content)
+     (comment yellow)
+     (docstring yellow-faint)
+     ;; Function definitions: blue
+     (fnname blue)
+     ;; Variable declarations: cyan
+     (variable cyan)
+     ;; Unhighlight keywords, types, builtins, preprocessor
+     (keyword fg-main)
+     (type fg-main)
+     (builtin fg-main)
+     (preprocessor fg-main)
+     ;; Dim punctuation/delimiters
+     (delimiter fg-dim)))
   :init
-  (load-theme 'modus-vivendi-tinted :no-confirm))
+  (load-theme 'modus-vivendi-tinted :no-confirm)
+  :config
+  ;; Unhighlight function calls and variable references (Emacs 29+ faces)
+  (with-eval-after-load 'font-lock
+    (set-face-attribute 'font-lock-function-call-face nil
+                        :foreground 'unspecified :inherit 'default)
+    (set-face-attribute 'font-lock-variable-use-face nil
+                        :foreground 'unspecified :inherit 'default)
+    (set-face-attribute 'font-lock-bracket-face nil
+                        :foreground 'unspecified :inherit 'shadow)
+    (set-face-attribute 'font-lock-operator-face nil
+                        :foreground 'unspecified :inherit 'shadow)
+    (set-face-attribute 'font-lock-punctuation-face nil
+                        :foreground 'unspecified :inherit 'shadow)))
 
 (use-package nerd-icons
   ;; M-x nerd-icons-install-fonts
