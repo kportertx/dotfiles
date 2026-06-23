@@ -5,3 +5,5 @@
 !init.el
 !lisp/
 !lisp/**
+# ...but never byte-compiled output
+lisp/*.elc

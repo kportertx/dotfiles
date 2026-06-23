@@ -4,7 +4,10 @@
 # C
 cscope.out
 .ccls-cache
+.clangd
 compile_commands.json
+bin/analyze_source
+bin/rel-hotfix.bash
 
 # Eclipse
 .project
@@ -15,6 +18,17 @@ nbproject
 # Emacs
 .\#*
 *~
+*.elc
+.emacs.d.old1/
+
+# Node
+node_modules/
+/package.json
+/package-lock.json
+
+# Claude
+.claude/
+CLAUDE.md
 
 # General
 *.log
