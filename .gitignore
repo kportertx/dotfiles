@@ -1,0 +1,3 @@
+# Emacs auto-regenerates this via customize/package.el; it's pure machine
+# state (installed-package list, etc.), not hand-authored config.
+package/kporter/home/.emacs.d/custom-vars.el
