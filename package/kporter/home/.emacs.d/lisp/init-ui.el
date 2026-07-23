@@ -2,6 +2,46 @@
 ;;; Commentary:
 ;;; Code:
 
+;; HiDPI fringe bitmap scaling — must run before any package loads that calls
+;; define-fringe-bitmap (diff-hl, flycheck, git-gutter, …).
+;; Adapted from github.com/blahgeek/emacs-fringe-scale.
+(defcustom my/fringe-scale-width 16
+  "Target width for all fringe bitmaps."
+  :type 'integer :group 'display)
+
+(defun my/fringe-scale--width (bits-row orig-w new-w)
+  (let ((res 0) (i 0))
+    (while (< i new-w)
+      (let* ((j (floor (* orig-w (/ (float i) new-w))))
+             (bit (logand 1 (lsh bits-row (- j)))))
+        (setq res (logior res (lsh bit i))))
+      (setq i (1+ i)))
+    res))
+
+(defun my/fringe-scale--height (vec orig-h new-h)
+  (let ((res (make-vector new-h nil)) (i 0))
+    (while (< i new-h)
+      (aset res i (elt vec (floor (* orig-h (/ (float i) new-h)))))
+      (setq i (1+ i)))
+    res))
+
+(defun my/fringe-scale--advice (orig-func &rest args)
+  (let* ((bitmap (nth 0 args))
+         (bits   (nth 1 args))
+         (height (or (nth 2 args) (length bits)))
+         (width  (or (nth 3 args) 8))
+         (align  (or (nth 4 args) 'center)))
+    (when (< width my/fringe-scale-width)
+      (let* ((nw my/fringe-scale-width)
+             (nh (floor (* height (/ (float nw) width))))
+             (scaled (my/fringe-scale--height
+                      (mapcar (lambda (r) (my/fringe-scale--width r width nw)) bits)
+                      height nh)))
+        (setq bits scaled height nh width nw)))
+    (funcall orig-func bitmap bits height width align)))
+
+(advice-add 'define-fringe-bitmap :around #'my/fringe-scale--advice)
+
 (use-package better-jumper
   ;; Better-jumper is configurable jump list implementation for Emacs that can be used
   ;; to easily jump back to previous locations. That provides optional integration with
@@ -433,15 +473,115 @@ targets."
   :hook
   (dired-mode-hook . recentf-add-dired-directory))
 
+(defface treemacs-selected-label-face
+  '((t :inherit treemacs-file-face))
+  "Face for the selected node's label only, sized independent of the rest of the shrunk tree.")
+
+(defvar-local treemacs--selected-label-overlay nil)
+(defvar-local treemacs--marquee-timer nil)
+(defvar-local treemacs--marquee-offset 0)
+
+(defun treemacs--marquee-stop ()
+  (when treemacs--marquee-timer
+    (cancel-timer treemacs--marquee-timer)
+    (setq treemacs--marquee-timer nil)))
+
+(defun treemacs--marquee-render-width (win btn)
+  "Pixel width of whatever is currently rendered for BTN in WIN.
+Live measurement, so it always matches reality regardless of which
+face-remaps (`treemacs-text-scale', etc.) are active in this buffer."
+  (car (window-text-pixel-size win (treemacs-button-start btn) (treemacs-button-end btn))))
+
+(defun treemacs--marquee-fit (win btn overlay candidate avail-pixel)
+  "Binary-search the longest prefix of CANDIDATE that fits AVAIL-PIXEL,
+actually displaying each guess in OVERLAY and measuring the real result."
+  (let ((lo 0) (hi (length candidate)))
+    (while (< lo hi)
+      (let ((mid (/ (+ lo hi 1) 2)))
+        (overlay-put overlay 'display (substring candidate 0 mid))
+        (if (<= (treemacs--marquee-render-width win btn) avail-pixel)
+            (setq lo mid)
+          (setq hi (1- mid)))))
+    (overlay-put overlay 'display (substring candidate 0 lo))))
+
+(defun treemacs--marquee-tick (buf overlay btn avail-pixel full-text)
+  "Slide FULL-TEXT through AVAIL-PIXEL worth of space in OVERLAY."
+  (if (not (and (buffer-live-p buf) (overlay-buffer overlay)))
+      (treemacs--marquee-stop)
+    (with-current-buffer buf
+      (-if-let (win (get-buffer-window buf t))
+          (let* ((padded (concat full-text "   "))
+                 (len (length padded))
+                 (start (mod treemacs--marquee-offset len))
+                 (rotated (concat (substring padded start) (substring padded 0 start))))
+            (treemacs--marquee-fit win btn overlay rotated avail-pixel)
+            (setq treemacs--marquee-offset (1+ treemacs--marquee-offset)))
+        (treemacs--marquee-stop)))))
+
+(defun treemacs--update-selected-label-overlay ()
+  "Move the label-size overlay to the button on the current line only.
+Leaves indentation guides and the icon at `treemacs-text-scale' size.
+Marquees the label text if it would overflow the panel width."
+  (treemacs--marquee-stop)
+  (when treemacs--selected-label-overlay
+    (delete-overlay treemacs--selected-label-overlay))
+  (-when-let (btn (treemacs-current-button))
+    (setq treemacs--selected-label-overlay
+          (make-overlay (treemacs-button-start btn) (treemacs-button-end btn)))
+    (overlay-put treemacs--selected-label-overlay 'face 'treemacs-selected-label-face)
+    (-when-let (win (get-buffer-window (current-buffer) t))
+      (let* ((full-text (buffer-substring-no-properties
+                          (treemacs-button-start btn) (treemacs-button-end btn)))
+             (prefix-pixel (car (window-text-pixel-size
+                                 win (line-beginning-position) (treemacs-button-start btn))))
+             (avail-pixel (- (window-body-width win t) prefix-pixel))
+             (label-pixel (treemacs--marquee-render-width win btn)))
+        (when (> label-pixel avail-pixel)
+          (setq treemacs--marquee-offset 0)
+          (setq treemacs--marquee-timer
+                (run-with-timer 0 0.3 #'treemacs--marquee-tick
+                                 (current-buffer) treemacs--selected-label-overlay
+                                 btn avail-pixel full-text)))))))
+
 (use-package treemacs
   :ensure t
   :defer t
   :init
   (with-eval-after-load 'winum
     (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
+  :custom
+  (treemacs-collapse-dirs 3) ; fewer nodes to render/git-decorate on deep monorepo trees
+  (treemacs-width 18)
+  (treemacs-text-scale -3)
   :config
   (treemacs-git-mode 'deferred)
   (treemacs-git-commit-diff-mode t)
+  (treemacs-resize-icons 10)
+  ;; ponytail: filewatch-mode auto-enables on load and inotify-watches every
+  ;; expanded dir; costly on core/aerospike-size trees. Off here, use `g` to
+  ;; refresh manually. Re-enable with (treemacs-filewatch-mode t) if external
+  ;; file changes (branch switches, build output) need to auto-reflect.
+  (treemacs-filewatch-mode -1)
+  (treemacs-follow-mode t)
+  ;; Selected node's label renders at the -1 scale used before the last
+  ;; shrink (not full original size), since that's what "prior" meant here.
+  (set-face-attribute 'treemacs-selected-label-face nil
+                       :height (expt text-scale-mode-step (- -1 treemacs-text-scale)))
+  ;; `treemacs--follow' (file-follow) runs off an idle timer, not the
+  ;; command loop, so our buffer-local `post-command-hook' overlay updater
+  ;; never fires for it. Refresh explicitly once it's done moving point.
+  ;; `treemacs--follow' restores the original window/buffer before
+  ;; returning, so the advice must re-select the treemacs window itself --
+  ;; otherwise the overlay updater runs against the wrong buffer and no-ops.
+  (advice-add 'treemacs--follow :after
+              (lambda (&rest _)
+                (-when-let (win (treemacs-get-local-window))
+                  (with-selected-window win
+                    (treemacs--update-selected-label-overlay)))))
+  :hook
+  (treemacs-mode . (lambda ()
+                     (display-line-numbers-mode -1)
+                     (add-hook 'post-command-hook #'treemacs--update-selected-label-overlay nil t)))
   :bind
   (:map global-map
     ("M-0"       . treemacs-select-window)
@@ -611,6 +751,31 @@ targets."
 
   (advice-add 'read-aloud--string :filter-args
               #'kp/read-aloud--strip-markdown-args))
+
+;; Context menu (built-in, Emacs 28+) with Eglot and prog-mode entries.
+(when (fboundp 'context-menu-mode)
+  (context-menu-mode 1)
+
+  (defun my/context-menu-eglot (menu _click)
+    "Add Eglot items to MENU when an LSP server is active."
+    (when (and (fboundp 'eglot-current-server) (eglot-current-server))
+      (define-key-after menu [eglot-ctx-sep]     '(menu-item "--"))
+      (define-key-after menu [eglot-ctx-actions] '(menu-item "Code Actions"      eglot-code-actions))
+      (define-key-after menu [eglot-ctx-rename]  '(menu-item "Rename Symbol"     eglot-rename))
+      (define-key-after menu [eglot-ctx-format]  '(menu-item "Format (LSP)"      eglot-format-buffer))
+      (define-key-after menu [eglot-ctx-imports] '(menu-item "Organize Imports"  eglot-code-action-organize-imports))
+      (define-key-after menu [eglot-ctx-calls]   '(menu-item "Call Hierarchy"    eglot-show-call-hierarchy)))
+    menu)
+
+  (defun my/context-menu-prog (menu _click)
+    "Add Apheleia format entry in prog-mode buffers."
+    (when (derived-mode-p 'prog-mode)
+      (define-key-after menu [prog-ctx-sep]    '(menu-item "--"))
+      (define-key-after menu [prog-ctx-format] '(menu-item "Format Buffer" apheleia-format-buffer)))
+    menu)
+
+  (add-to-list 'context-menu-functions #'my/context-menu-eglot)
+  (add-to-list 'context-menu-functions #'my/context-menu-prog))
 
 (provide 'init-ui)
 ;;; init-ui.el ends here

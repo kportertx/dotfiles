@@ -113,5 +113,270 @@
   (agent-recall-search-function 'consult-ripgrep)
   (agent-recall-browse-sort 'modified-desc))
 
+(use-package agent-shell-dashboard
+  :after agent-shell
+  :vc (:url "https://github.com/wandersoncferreira/agent-shell-dashboard")
+  :custom
+  (agent-shell-dashboard-summary-command '("claude" "-p" "--model" "claude-haiku-4-5-20251001")))
+
+;; Treemacs section listing live agent-shell buffers, using treemacs's
+;; extension API (buffer lists are its own documented example case).
+;; ponytail: re-queried only on collapse/expand (TAB), not pushed live when
+;; a shell opens/closes elsewhere; toggle the section to refresh.
+(with-eval-after-load 'treemacs
+  (require 'treemacs-extensions)
+
+  (defun agent-shell--treemacs-buffers ()
+    "Live `agent-shell-mode' buffers, for the treemacs Agent Shells section."
+    (sort (seq-filter (lambda (b) (with-current-buffer b (derived-mode-p 'agent-shell-mode)))
+                       (buffer-list))
+          :key #'buffer-name :lessp #'string<))
+
+  (defun agent-shell--treemacs-visit (&optional _arg)
+    (interactive "P")
+    (-when-let (node (treemacs-node-at-point))
+      (-when-let (buf (treemacs-button-get node :agent-shell-buffer))
+        (if (buffer-live-p buf)
+            (pop-to-buffer buf)
+          (treemacs-pulse-on-failure "That agent-shell buffer is gone.")))))
+
+  (defun agent-shell--treemacs-visit-in-last-window (&optional _arg)
+    "Open the clicked agent-shell buffer in whichever window last had focus.
+Mirrors `treemacs-visit-node-in-most-recently-used-window', which only
+dispatches for file/dir/tag nodes and doesn't know about this custom type."
+    (interactive "P")
+    (-when-let (node (treemacs-node-at-point))
+      (-when-let (buf (treemacs-button-get node :agent-shell-buffer))
+        (if (not (buffer-live-p buf))
+            (treemacs-pulse-on-failure "That agent-shell buffer is gone.")
+          (run-hook-with-args
+           'treemacs-after-visit-functions
+           (let ((win (get-mru-window (selected-frame) nil :not-selected)))
+             (if win
+                 (progn (select-window win) (switch-to-buffer buf))
+               (pop-to-buffer buf))))))))
+
+  (treemacs-define-leaf-node agent-shell-buffer
+    (treemacs-as-icon "  " 'face 'font-lock-keyword-face)
+    :ret-action #'agent-shell--treemacs-visit
+    :mouse1-action #'agent-shell--treemacs-visit-in-last-window
+    :visit-action #'agent-shell--treemacs-visit)
+
+  (defun agent-shell--treemacs-status (buf)
+    "Return `busy', `pending', `permission', or `idle' for agent-shell BUF.
+Reuses `agent-shell-attention''s own tracking rather than re-deriving it."
+    (let ((entry (gethash buf agent-shell-attention--pending)))
+      (cond
+       ((and entry (agent-shell-attention--pending-entry-permission-p entry)) 'permission)
+       (entry 'pending)
+       ((agent-shell-attention--buffer-busy-p buf) 'busy)
+       (t 'idle))))
+
+  (defun agent-shell--treemacs-status-icon (buf)
+    (pcase (agent-shell--treemacs-status buf)
+      ('busy       (treemacs-as-icon "⚙️ "))
+      ('pending    (treemacs-as-icon "💬 "))
+      ('permission (treemacs-as-icon "🔒 "))
+      (_           (treemacs-as-icon "  "))))
+
+  (defun agent-shell--treemacs-base-name (buf)
+    "Buffer name with the uniquify `<N>' disambiguator stripped."
+    (replace-regexp-in-string "<[0-9]+>\\'" "" (buffer-name buf)))
+
+  (defun agent-shell--treemacs-grouped-items ()
+    "Group `(agent-shell--treemacs-buffers)' by common name prefix.
+Returns a list where each element is either a lone buffer, or
+\(:group BASE-NAME . BUFFERS) for names sharing a base with >1 member."
+    (let ((groups (make-hash-table :test #'equal))
+          (order nil))
+      (dolist (buf (agent-shell--treemacs-buffers))
+        (let ((base (agent-shell--treemacs-base-name buf)))
+          (unless (gethash base groups) (push base order))
+          (push buf (gethash base groups))))
+      (mapcar (lambda (base)
+                (let ((members (nreverse (gethash base groups))))
+                  (if (cdr members)
+                      (list :group base members)
+                    (car members))))
+              (nreverse order))))
+
+  (defun agent-shell--treemacs-ensure-expanded (path closed-state expand-command)
+    "Expand the custom node at PATH via the safe, interactive EXPAND-COMMAND.
+Must go through point-based dispatch (`treemacs-node-at-point' inside
+EXPAND-COMMAND) rather than passing a stale dom marker to the low-level
+`treemacs--do-expand-*' function directly -- that duplicated the section
+on every call, even against a freshly-rebuilt buffer."
+    (-when-let (dom-node (treemacs-find-in-dom path))
+      (-when-let (pos (treemacs-dom-node->position dom-node))
+        (when (eq (treemacs-button-get pos :state) closed-state)
+          (save-excursion
+            (goto-char pos)
+            (funcall expand-command))))))
+
+  (treemacs-define-expandable-node agent-shell-group
+    :icon-open (treemacs-as-icon "- " 'face 'font-lock-keyword-face)
+    :icon-closed (treemacs-as-icon "+ " 'face 'font-lock-keyword-face)
+    :query-function (treemacs-button-get node :agent-shell-group-buffers)
+    :render-action
+    (treemacs-render-node
+     :icon (agent-shell--treemacs-status-icon item)
+     ;; The group's own label already shows the shared prefix; strip it
+     ;; here so children just show their `<N>' differentiator. The one
+     ;; member with no suffix (name == base) falls back to the full name
+     ;; rather than rendering blank.
+     :label-form (let* ((full (buffer-name item))
+                         (suffix (substring full (length (agent-shell--treemacs-base-name item)))))
+                   (if (string-empty-p suffix) full suffix))
+     :state treemacs-agent-shell-buffer-state
+     :key-form (buffer-name item)
+     :more-properties (:agent-shell-buffer item)))
+
+  ;; treemacs-define-expandable-node has no :mouse1-action (that's only on
+  ;; the leaf-node macro), so double-click on the group folder itself was
+  ;; never wired -- matching how real directory nodes handle it.
+  (treemacs-define-doubleclick-action treemacs-agent-shell-group-open-state #'treemacs-toggle-node)
+  (treemacs-define-doubleclick-action treemacs-agent-shell-group-closed-state #'treemacs-toggle-node)
+
+  (treemacs-define-expandable-node agent-shells
+    :icon-open (treemacs-as-icon "- " 'face 'font-lock-keyword-face)
+    :icon-closed (treemacs-as-icon "+ " 'face 'font-lock-keyword-face)
+    :query-function (agent-shell--treemacs-grouped-items)
+    :render-action
+    (if (and (consp item) (eq (car item) :group))
+        (treemacs-render-node
+         :icon treemacs-icon-agent-shell-group-closed
+         :label-form (cadr item)
+         :state treemacs-agent-shell-group-closed-state
+         :key-form (cadr item)
+         :more-properties (:agent-shell-group-buffers (caddr item)))
+      (treemacs-render-node
+       :icon (agent-shell--treemacs-status-icon item)
+       :label-form (buffer-name item)
+       :state treemacs-agent-shell-buffer-state
+       :key-form (buffer-name item)
+       :more-properties (:agent-shell-buffer item)))
+    :top-level-marker t
+    :root-label "Agent Shells"
+    :root-face 'font-lock-keyword-face
+    :root-key-form "Agent Shells")
+
+  (treemacs-define-top-level-extension
+   :extension #'treemacs-AGENT-SHELLS-extension
+   :position 'top)
+
+  ;; agent-shell-attention has no public "status changed" hook, and its own
+  ;; state-mutating functions are numerous/private enough that hooking all
+  ;; of them individually is fragile. Poll instead: cheap (a handful of
+  ;; hash lookups) and only touches the buffer when the section is open.
+  ;; ponytail: full collapse+expand redraw rather than patching icons in
+  ;; place, since icon strings vary in length (emoji codepoint counts
+  ;; differ), so a fixed-offset in-place patch would be wrong.
+  ;;
+  ;; Must go through the interactive `treemacs-collapse-agent-shells' /
+  ;; `treemacs-expand-agent-shells' (which re-locate the node fresh via
+  ;; `treemacs-node-at-point' each time) -- calling the low-level
+  ;; `treemacs--do-collapse-agent-shells' / `treemacs--do-expand-agent-shells'
+  ;; directly with a manually re-fetched dom marker duplicated the section
+  ;; on every call, even from a freshly-rebuilt buffer.
+  (defun agent-shell--treemacs-refresh-section ()
+    (-when-let (win (treemacs-get-local-window))
+      (with-selected-window win
+        (save-excursion
+          (goto-char (point-min))
+          (-when-let (node (treemacs-node-at-point))
+            (when (eq (treemacs-button-get node :state) treemacs-agent-shells-open-state)
+              (treemacs-collapse-agent-shells)
+              (treemacs-expand-agent-shells))))
+        ;; hl-line-mode's own post-command-hook entry only re-anchors the
+        ;; *selected* window's overlay, and treemacs is never selected
+        ;; when you're focused on a split elsewhere -- so unlike
+        ;; `treemacs-goto-file-node'/`treemacs-goto-extension-node' (which
+        ;; call this themselves), the plain collapse+expand above leaves
+        ;; hl-line's overlay stretched across whatever got deleted/
+        ;; reinserted. Re-anchor it before deciding what else to do.
+        (hl-line-highlight)
+        ;; The collapse+expand above invalidates whatever point/overlay
+        ;; was previously tracking, so re-sync to the MRU window's buffer
+        ;; rather than trusting wherever point landed post-refresh (which
+        ;; is wherever treemacs-expand-agent-shells happens to leave it --
+        ;; e.g. the group's first child -- not necessarily what's focused).
+        (let ((mru-buf (window-buffer (or (get-mru-window (selected-frame) nil :not-selected) win))))
+          (if (with-current-buffer mru-buf (derived-mode-p 'agent-shell-mode))
+              (agent-shell--treemacs-goto-buffer mru-buf)
+            (agent-shell--treemacs-clear-if-agent-shell-overlay))))))
+
+  (defvar agent-shell--treemacs-refresh-timer nil)
+  (when agent-shell--treemacs-refresh-timer
+    (cancel-timer agent-shell--treemacs-refresh-timer))
+  (setq agent-shell--treemacs-refresh-timer
+        (run-with-timer 3 3 #'agent-shell--treemacs-refresh-section))
+
+  ;; Follow-mode's own file-follow only watches `buffer-file-name'/dired, so
+  ;; it silently ignores agent-shell buffers. This mirrors its debounce
+  ;; (`treemacs--follow-after-buffer-list-update') using treemacs's own
+  ;; `treemacs-goto-extension-node' primitive for custom-extension follow,
+  ;; then reuses the same label/marquee overlay file-follow already updates.
+  (defvar agent-shell--treemacs-follow-timer nil)
+
+  (defun agent-shell--treemacs-goto-buffer (buf)
+    "Move point/overlay in the (already-selected) treemacs window to BUF,
+expanding the section/group as needed."
+    (let* ((name (buffer-name buf))
+           (base (agent-shell--treemacs-base-name buf))
+           (grouped (> (length (seq-filter (lambda (b) (equal (agent-shell--treemacs-base-name b) base))
+                                            (agent-shell--treemacs-buffers)))
+                       1))
+           (path (if grouped
+                     (list :custom "Agent Shells" base name)
+                   (list :custom "Agent Shells" name))))
+      ;; goto-extension-node's auto-expand fallback assumes directory-node
+      ;; semantics and doesn't know how to open our custom section/group
+      ;; nodes, so expand them explicitly first.
+      (agent-shell--treemacs-ensure-expanded
+       (list :custom "Agent Shells") treemacs-agent-shells-closed-state
+       #'treemacs-expand-agent-shells)
+      (when grouped
+        (agent-shell--treemacs-ensure-expanded
+         (list :custom "Agent Shells" base) treemacs-agent-shell-group-closed-state
+         #'treemacs-expand-agent-shell-group))
+      (treemacs-goto-extension-node path)
+      (treemacs--update-selected-label-overlay)))
+
+  (defun agent-shell--treemacs-clear-if-agent-shell-overlay ()
+    "Clear the label/marquee overlay if it's parked on an agent-shell node.
+Unlike files, an agent-shell isn't \"current\" once you're no longer
+looking at it."
+    (when (and treemacs--selected-label-overlay
+               (overlay-buffer treemacs--selected-label-overlay)
+               (get-text-property (overlay-start treemacs--selected-label-overlay)
+                                   :agent-shell-buffer))
+      (treemacs--marquee-stop)
+      (delete-overlay treemacs--selected-label-overlay)))
+
+  (defun agent-shell--treemacs-follow-now ()
+    (setq agent-shell--treemacs-follow-timer nil)
+    ;; Capture the mode/buffer BEFORE selecting the treemacs window --
+    ;; with-selected-window changes current-buffer to treemacs itself.
+    (let ((is-agent-shell (derived-mode-p 'agent-shell-mode))
+          (buf (current-buffer)))
+      (-when-let (win (treemacs-get-local-window))
+        (with-selected-window win
+          (if is-agent-shell
+              (agent-shell--treemacs-goto-buffer buf)
+            (agent-shell--treemacs-clear-if-agent-shell-overlay))))))
+
+  (defun agent-shell--treemacs-follow ()
+    ;; run-with-timer (not run-with-idle-timer): an idle timer only fires
+    ;; after Emacs is continuously idle for the delay, which never happens
+    ;; if you're actively typing into the agent-shell you just switched to.
+    ;; A plain zero-delay timer still defers off the current call stack
+    ;; (buffer-list-update-hook isn't a safe place to select windows from
+    ;; synchronously) without waiting on activity to stop.
+    (unless agent-shell--treemacs-follow-timer
+      (setq agent-shell--treemacs-follow-timer
+            (run-with-timer 0 nil #'agent-shell--treemacs-follow-now))))
+
+  (add-hook 'buffer-list-update-hook #'agent-shell--treemacs-follow))
+
 (provide 'init-ai)
 ;;; init-ai.el ends here
