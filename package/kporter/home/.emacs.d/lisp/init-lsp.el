@@ -11,15 +11,21 @@
   (eglot-send-changes-idle-time 0.5)
   :config
   (setq eglot-stay-out-of '())
+  (add-to-list 'eglot-server-programs
+               '((html-mode html-ts-mode mhtml-mode) . ("vscode-html-language-server" "--stdio")))
   :init
-  (add-hook 'prog-mode-hook
-    (lambda ()
-      (unless (derived-mode-p
-                'emacs-lisp-mode
-                'hcl-mode
-                'makefile-mode
-                'clojure-ts-mode)
-        (eglot-ensure))))
+  (defun my/eglot-ensure-maybe ()
+    (unless (or (buffer-base-buffer)
+                (derived-mode-p
+                  'emacs-lisp-mode
+                  'hcl-mode
+                  'makefile-mode
+                  'clojure-ts-mode
+                  'html-mode
+                  'html-ts-mode
+                  'mhtml-mode))
+      (eglot-ensure)))
+  (add-hook 'prog-mode-hook #'my/eglot-ensure-maybe)
   :bind
   (:map eglot-mode-map
     ("C-c l a" . eglot-code-actions)
