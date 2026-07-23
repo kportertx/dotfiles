@@ -475,16 +475,97 @@ targets."
 
 (defface treemacs-selected-label-face
   '((t :inherit treemacs-file-face))
-  "Face for the selected node's label only, sized independent of the rest of the shrunk tree.")
+  "Face for the selected node's label only, sized independent of the rest of the shrunk tree.
+Background highlighting is handled separately by the full-line overlay
+in `treemacs--tracked-overlay->line-overlay' -- this overlay is
+deliberately narrow (label text only) so the bigger font doesn't touch
+indentation/icon glyphs, but that means it's far less visually
+noticeable than hl-line-mode's full-width highlight once point moves
+away, which reads as \"unhighlighted\" even though it's still tracked.")
 
-(defvar-local treemacs--selected-label-overlay nil)
-(defvar-local treemacs--marquee-timer nil)
-(defvar-local treemacs--marquee-offset 0)
+(require 'cl-lib)
 
-(defun treemacs--marquee-stop ()
-  (when treemacs--marquee-timer
-    (cancel-timer treemacs--marquee-timer)
-    (setq treemacs--marquee-timer nil)))
+(cl-defstruct (treemacs--tracked-overlay (:conc-name treemacs--tracked-overlay->))
+  overlay      ; narrow: label text only, bigger font + marquee
+  line-overlay ; full line: background highlight, same visual weight as hl-line
+  timer offset)
+
+(defvar-local treemacs--tracked-overlays (make-hash-table :test #'eq)
+  "Per-section-kind overlay tracking (`agent-shell', `open-buffer', `file'),
+so e.g. the current Agent Shells entry and the current Open Buffers entry
+can be highlighted at the same time instead of one clobbering the other.")
+
+(defun treemacs--tracked-overlay (kind)
+  "Get (creating if needed) the tracked-overlay struct for KIND.
+Self-healing rather than relying solely on the treemacs-mode-hook's
+setq-local having already run in this buffer (its default value is one
+hash table shared across every treemacs buffer/frame until something
+setq's it locally -- puthash/gethash alone never trigger that)."
+  (unless (hash-table-p treemacs--tracked-overlays)
+    (setq-local treemacs--tracked-overlays (make-hash-table :test #'eq)))
+  (or (gethash kind treemacs--tracked-overlays)
+      (puthash kind (make-treemacs--tracked-overlay) treemacs--tracked-overlays)))
+
+(defun treemacs--node-kind (btn)
+  "Which section BTN's node belongs to, so it gets its own overlay slot."
+  (cond
+   ((treemacs-button-get btn :agent-shell-buffer) 'agent-shell)
+   ((treemacs-button-get btn :open-buffer) 'open-buffer)
+   (t 'file)))
+
+(defun treemacs--marquee-stop (kind)
+  (let ((tracked (treemacs--tracked-overlay kind)))
+    (when (treemacs--tracked-overlay->timer tracked)
+      (cancel-timer (treemacs--tracked-overlay->timer tracked))
+      (setf (treemacs--tracked-overlay->timer tracked) nil))))
+
+(defun treemacs--clear-tracked-overlay (kind)
+  "Stop KIND's marquee and delete its overlays, if any."
+  (treemacs--marquee-stop kind)
+  (let* ((tracked (treemacs--tracked-overlay kind))
+         (ov (treemacs--tracked-overlay->overlay tracked))
+         (line-ov (treemacs--tracked-overlay->line-overlay tracked)))
+    (when ov
+      (delete-overlay ov)
+      (setf (treemacs--tracked-overlay->overlay tracked) nil))
+    (when line-ov
+      (delete-overlay line-ov)
+      (setf (treemacs--tracked-overlay->line-overlay tracked) nil))))
+
+(defun treemacs--ensure-custom-node-visible (root-path leaf-path open-state closed-state
+                                              expand-command collapse-command)
+  "Make sure LEAF-PATH under ROOT-PATH is actually rendered before a goto.
+Expands ROOT-PATH if closed. If it's already open but stale -- doesn't
+yet contain LEAF-PATH, e.g. a buffer opened/became relevant after the
+section was last rendered -- forces a refresh via collapse+expand rather
+than leaving `treemacs-goto-extension-node' to fall into its buggy
+fallback search (see `treemacs--custom-top-level-in-dom-p').
+Must go through the interactive EXPAND-COMMAND/COLLAPSE-COMMAND (point-
+based `treemacs-node-at-point' dispatch) rather than the low-level
+`treemacs--do-expand-*'/`treemacs--do-collapse-*' directly -- calling
+those with a manually re-fetched dom marker duplicated the section on
+every call, even against a freshly-rebuilt buffer."
+  (-when-let (dom-node (treemacs-find-in-dom root-path))
+    (-when-let (pos (treemacs-dom-node->position dom-node))
+      (let ((state (treemacs-button-get pos :state)))
+        (cond
+         ((eq state closed-state)
+          (save-excursion (goto-char pos) (funcall expand-command)))
+         ((and (eq state open-state) (not (treemacs-find-in-dom leaf-path)))
+          (save-excursion
+            (goto-char pos)
+            (funcall collapse-command)
+            (goto-char pos)
+            (funcall expand-command))))))))
+
+(defun treemacs--custom-top-level-in-dom-p (root-path)
+  "Whether the top-level extension at ROOT-PATH is currently rendered.
+`treemacs--find-custom-node' (used by `treemacs-goto-extension-node') has
+a bug: when a path's ancestors are entirely missing from the dom, its
+fallback search shrinks the path down to a bare keyword and then errors
+with `(wrong-type-argument listp :custom)' instead of failing cleanly.
+Check first and skip the goto rather than ever hitting that."
+  (and (treemacs-find-in-dom root-path) t))
 
 (defun treemacs--marquee-render-width (win btn)
   "Pixel width of whatever is currently rendered for BTN in WIN.
@@ -504,44 +585,60 @@ actually displaying each guess in OVERLAY and measuring the real result."
           (setq hi (1- mid)))))
     (overlay-put overlay 'display (substring candidate 0 lo))))
 
-(defun treemacs--marquee-tick (buf overlay btn avail-pixel full-text)
+(defun treemacs--marquee-tick (buf kind overlay btn avail-pixel full-text)
   "Slide FULL-TEXT through AVAIL-PIXEL worth of space in OVERLAY."
   (if (not (and (buffer-live-p buf) (overlay-buffer overlay)))
-      (treemacs--marquee-stop)
+      (with-current-buffer buf (treemacs--marquee-stop kind))
     (with-current-buffer buf
       (-if-let (win (get-buffer-window buf t))
-          (let* ((padded (concat full-text "   "))
+          (let* ((tracked (treemacs--tracked-overlay kind))
+                 (offset (treemacs--tracked-overlay->offset tracked))
+                 (padded (concat full-text "   "))
                  (len (length padded))
-                 (start (mod treemacs--marquee-offset len))
+                 (start (mod offset len))
                  (rotated (concat (substring padded start) (substring padded 0 start))))
             (treemacs--marquee-fit win btn overlay rotated avail-pixel)
-            (setq treemacs--marquee-offset (1+ treemacs--marquee-offset)))
-        (treemacs--marquee-stop)))))
+            (setf (treemacs--tracked-overlay->offset tracked) (1+ offset)))
+        (treemacs--marquee-stop kind)))))
 
-(defun treemacs--update-selected-label-overlay ()
-  "Move the label-size overlay to the button on the current line only.
+(defun treemacs--update-selected-label-overlay (&optional kind)
+  "Move KIND's label-size overlay to the button on the current line.
+KIND defaults to whatever section the current button belongs to
+\(`treemacs--node-kind'), so different sections track independently and
+can be highlighted simultaneously instead of one clobbering another.
 Leaves indentation guides and the icon at `treemacs-text-scale' size.
 Marquees the label text if it would overflow the panel width."
-  (treemacs--marquee-stop)
-  (when treemacs--selected-label-overlay
-    (delete-overlay treemacs--selected-label-overlay))
   (-when-let (btn (treemacs-current-button))
-    (setq treemacs--selected-label-overlay
-          (make-overlay (treemacs-button-start btn) (treemacs-button-end btn)))
-    (overlay-put treemacs--selected-label-overlay 'face 'treemacs-selected-label-face)
-    (-when-let (win (get-buffer-window (current-buffer) t))
-      (let* ((full-text (buffer-substring-no-properties
-                          (treemacs-button-start btn) (treemacs-button-end btn)))
-             (prefix-pixel (car (window-text-pixel-size
-                                 win (line-beginning-position) (treemacs-button-start btn))))
-             (avail-pixel (- (window-body-width win t) prefix-pixel))
-             (label-pixel (treemacs--marquee-render-width win btn)))
-        (when (> label-pixel avail-pixel)
-          (setq treemacs--marquee-offset 0)
-          (setq treemacs--marquee-timer
-                (run-with-timer 0 0.3 #'treemacs--marquee-tick
-                                 (current-buffer) treemacs--selected-label-overlay
-                                 btn avail-pixel full-text)))))))
+    (let* ((kind (or kind (treemacs--node-kind btn)))
+           (tracked (treemacs--tracked-overlay kind)))
+      (treemacs--marquee-stop kind)
+      (when (treemacs--tracked-overlay->overlay tracked)
+        (delete-overlay (treemacs--tracked-overlay->overlay tracked)))
+      (setf (treemacs--tracked-overlay->overlay tracked)
+            (make-overlay (treemacs-button-start btn) (treemacs-button-end btn)))
+      (overlay-put (treemacs--tracked-overlay->overlay tracked) 'face 'treemacs-selected-label-face)
+      ;; Full-line background overlay, same visual weight as hl-line's own
+      ;; highlight, so this stays equally noticeable once point (and
+      ;; hl-line's overlay) moves elsewhere to track a different kind.
+      (when (treemacs--tracked-overlay->line-overlay tracked)
+        (delete-overlay (treemacs--tracked-overlay->line-overlay tracked)))
+      (setf (treemacs--tracked-overlay->line-overlay tracked)
+            (make-overlay (line-beginning-position) (min (point-max) (1+ (line-end-position)))))
+      (overlay-put (treemacs--tracked-overlay->line-overlay tracked) 'face 'hl-line)
+      (overlay-put (treemacs--tracked-overlay->line-overlay tracked) 'priority -60)
+      (-when-let (win (get-buffer-window (current-buffer) t))
+        (let* ((full-text (buffer-substring-no-properties
+                            (treemacs-button-start btn) (treemacs-button-end btn)))
+               (prefix-pixel (car (window-text-pixel-size
+                                   win (line-beginning-position) (treemacs-button-start btn))))
+               (avail-pixel (- (window-body-width win t) prefix-pixel))
+               (label-pixel (treemacs--marquee-render-width win btn)))
+          (when (> label-pixel avail-pixel)
+            (setf (treemacs--tracked-overlay->offset tracked) 0)
+            (setf (treemacs--tracked-overlay->timer tracked)
+                  (run-with-timer 0 0.3 #'treemacs--marquee-tick
+                                   (current-buffer) kind (treemacs--tracked-overlay->overlay tracked)
+                                   btn avail-pixel full-text))))))))
 
 (use-package treemacs
   :ensure t
@@ -565,6 +662,9 @@ Marquees the label text if it would overflow the panel width."
   (treemacs-follow-mode t)
   ;; Selected node's label renders at the -1 scale used before the last
   ;; shrink (not full original size), since that's what "prior" meant here.
+  ;; face-remap (where text-scale-mode-step lives) isn't guaranteed loaded
+  ;; this early in startup -- require it rather than assume.
+  (require 'face-remap)
   (set-face-attribute 'treemacs-selected-label-face nil
                        :height (expt text-scale-mode-step (- -1 treemacs-text-scale)))
   ;; `treemacs--follow' (file-follow) runs off an idle timer, not the
@@ -578,9 +678,31 @@ Marquees the label text if it would overflow the panel width."
                 (-when-let (win (treemacs-get-local-window))
                   (with-selected-window win
                     (treemacs--update-selected-label-overlay)))))
+  ;; treemacs--follow only ever acts for file-visiting buffers -- it never
+  ;; runs (and so never clears anything) when focus moves to something
+  ;; else, e.g. an agent-shell. Without this, the 'file kind's highlight
+  ;; (real project-tree node) would stay lit indefinitely once set.
+  (defvar treemacs--file-kind-clear-timer nil)
+  (defun treemacs--file-kind-clear-now ()
+    (setq treemacs--file-kind-clear-timer nil)
+    (unless (buffer-file-name)
+      (-when-let (win (treemacs-get-local-window))
+        (with-selected-window win
+          (treemacs--clear-tracked-overlay 'file)))))
+  (defun treemacs--file-kind-clear-on-blur ()
+    (unless treemacs--file-kind-clear-timer
+      (setq treemacs--file-kind-clear-timer
+            (run-with-timer 0 nil #'treemacs--file-kind-clear-now))))
+  (add-hook 'buffer-list-update-hook #'treemacs--file-kind-clear-on-blur)
   :hook
   (treemacs-mode . (lambda ()
                      (display-line-numbers-mode -1)
+                     ;; defvar-local's default value is one shared hash
+                     ;; table until something setq's the variable in this
+                     ;; buffer -- puthash/gethash alone never trigger
+                     ;; that, so every treemacs buffer (one per frame)
+                     ;; would otherwise share the same table.
+                     (setq-local treemacs--tracked-overlays (make-hash-table :test #'eq))
                      (add-hook 'post-command-hook #'treemacs--update-selected-label-overlay nil t)))
   :bind
   (:map global-map
@@ -591,6 +713,105 @@ Marquees the label text if it would overflow the panel width."
     ("C-x t B"   . treemacs-bookmark)
     ("C-x t C-t" . treemacs-find-file)
     ("C-x t M-t" . treemacs-find-tag)))
+
+;; Treemacs section listing open file-visiting buffers (VSCode-style "Open
+;; Editors"), same extension-API pattern as the Agent Shells section.
+;; ponytail: no auto-refresh timer or follow-mode here -- unlike agent
+;; shells there's no busy/pending state to go stale, and the current file
+;; is already highlighted via treemacs's own file-follow on its real
+;; project-tree node, so a second highlight here would be redundant. List
+;; refreshes on collapse/expand (TAB) like Agent Shells did before its
+;; refresh timer was added; ask if periodic refresh turns out to matter.
+(with-eval-after-load 'treemacs
+  (defun open-buffers--treemacs-buffers ()
+    "Live file-visiting buffers, for the treemacs Open Buffers section."
+    (sort (seq-filter #'buffer-file-name (buffer-list))
+          :key #'buffer-name :lessp #'string<))
+
+  (defun open-buffers--treemacs-visit (&optional _arg)
+    (interactive "P")
+    (-when-let (node (treemacs-node-at-point))
+      (-when-let (buf (treemacs-button-get node :open-buffer))
+        (if (buffer-live-p buf)
+            (pop-to-buffer buf)
+          (treemacs-pulse-on-failure "That buffer is gone.")))))
+
+  (defun open-buffers--treemacs-visit-in-last-window (&optional _arg)
+    "Open the clicked buffer in whichever window last had focus."
+    (interactive "P")
+    (-when-let (node (treemacs-node-at-point))
+      (-when-let (buf (treemacs-button-get node :open-buffer))
+        (if (not (buffer-live-p buf))
+            (treemacs-pulse-on-failure "That buffer is gone.")
+          (run-hook-with-args
+           'treemacs-after-visit-functions
+           (let ((win (get-mru-window (selected-frame) nil :not-selected)))
+             (if win
+                 (progn (select-window win) (switch-to-buffer buf))
+               (pop-to-buffer buf))))))))
+
+  (treemacs-define-leaf-node open-buffer
+    (treemacs-as-icon "  " 'face 'font-lock-keyword-face)
+    :ret-action #'open-buffers--treemacs-visit
+    :mouse1-action #'open-buffers--treemacs-visit-in-last-window
+    :visit-action #'open-buffers--treemacs-visit)
+
+  (treemacs-define-expandable-node open-buffers
+    :icon-open (treemacs-as-icon "- " 'face 'font-lock-keyword-face)
+    :icon-closed (treemacs-as-icon "+ " 'face 'font-lock-keyword-face)
+    :query-function (open-buffers--treemacs-buffers)
+    :render-action
+    (treemacs-render-node
+     :icon treemacs-open-buffer-icon
+     :label-form (buffer-name item)
+     :state treemacs-open-buffer-state
+     :key-form (buffer-name item)
+     :more-properties (:open-buffer item))
+    :top-level-marker t
+    :root-label "Open Buffers"
+    :root-face 'font-lock-keyword-face
+    :root-key-form "Open Buffers")
+
+  (treemacs-define-top-level-extension
+   :extension #'treemacs-OPEN-BUFFERS-extension
+   :position 'top)
+
+  ;; Follow-mode, mirroring Agent Shells: expand the section and move the
+  ;; label/marquee overlay to whatever file buffer gets focus. Unlike
+  ;; agent shells there's no "clear on blur" -- these entries are just
+  ;; files, and file-follow itself is sticky (no busy/pending state to go
+  ;; stale), so switching to some other non-file buffer leaves it as-is.
+  (defvar open-buffers--treemacs-follow-timer nil)
+
+  (defun open-buffers--treemacs-goto-buffer (buf)
+    (when (treemacs--custom-top-level-in-dom-p (list :custom "Open Buffers"))
+      (let ((leaf-path (list :custom "Open Buffers" (buffer-name buf))))
+        (treemacs--ensure-custom-node-visible
+         (list :custom "Open Buffers") leaf-path
+         treemacs-open-buffers-open-state treemacs-open-buffers-closed-state
+         #'treemacs-expand-open-buffers #'treemacs-collapse-open-buffers)
+        (treemacs-goto-extension-node leaf-path)
+        (treemacs--update-selected-label-overlay))))
+
+  (defun open-buffers--treemacs-follow-now ()
+    (setq open-buffers--treemacs-follow-timer nil)
+    ;; Capture before selecting the treemacs window -- with-selected-window
+    ;; changes current-buffer to treemacs itself.
+    (let ((file-buf (and (buffer-file-name) (current-buffer))))
+      (-when-let (win (treemacs-get-local-window))
+        (with-selected-window win
+          (if file-buf
+              (open-buffers--treemacs-goto-buffer file-buf)
+            ;; Focus moved to something with no file (e.g. an agent-shell) --
+            ;; clear so this entry doesn't stay highlighted indefinitely.
+            (treemacs--clear-tracked-overlay 'open-buffer))))))
+
+  (defun open-buffers--treemacs-follow ()
+    (unless open-buffers--treemacs-follow-timer
+      (setq open-buffers--treemacs-follow-timer
+            (run-with-timer 0 nil #'open-buffers--treemacs-follow-now))))
+
+  (add-hook 'buffer-list-update-hook #'open-buffers--treemacs-follow))
 
 (use-package uniquify
   :ensure nil ;; Package doesn't actually exists - will slow emacs startup.

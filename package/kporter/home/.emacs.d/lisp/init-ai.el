@@ -113,12 +113,6 @@
   (agent-recall-search-function 'consult-ripgrep)
   (agent-recall-browse-sort 'modified-desc))
 
-(use-package agent-shell-dashboard
-  :after agent-shell
-  :vc (:url "https://github.com/wandersoncferreira/agent-shell-dashboard")
-  :custom
-  (agent-shell-dashboard-summary-command '("claude" "-p" "--model" "claude-haiku-4-5-20251001")))
-
 ;; Treemacs section listing live agent-shell buffers, using treemacs's
 ;; extension API (buffer lists are its own documented example case).
 ;; ponytail: re-queried only on collapse/expand (TAB), not pushed live when
@@ -200,19 +194,6 @@ Returns a list where each element is either a lone buffer, or
                     (car members))))
               (nreverse order))))
 
-  (defun agent-shell--treemacs-ensure-expanded (path closed-state expand-command)
-    "Expand the custom node at PATH via the safe, interactive EXPAND-COMMAND.
-Must go through point-based dispatch (`treemacs-node-at-point' inside
-EXPAND-COMMAND) rather than passing a stale dom marker to the low-level
-`treemacs--do-expand-*' function directly -- that duplicated the section
-on every call, even against a freshly-rebuilt buffer."
-    (-when-let (dom-node (treemacs-find-in-dom path))
-      (-when-let (pos (treemacs-dom-node->position dom-node))
-        (when (eq (treemacs-button-get pos :state) closed-state)
-          (save-excursion
-            (goto-char pos)
-            (funcall expand-command))))))
-
   (treemacs-define-expandable-node agent-shell-group
     :icon-open (treemacs-as-icon "- " 'face 'font-lock-keyword-face)
     :icon-closed (treemacs-as-icon "+ " 'face 'font-lock-keyword-face)
@@ -222,11 +203,11 @@ on every call, even against a freshly-rebuilt buffer."
      :icon (agent-shell--treemacs-status-icon item)
      ;; The group's own label already shows the shared prefix; strip it
      ;; here so children just show their `<N>' differentiator. The one
-     ;; member with no suffix (name == base) falls back to the full name
-     ;; rather than rendering blank.
+     ;; member with no suffix (name == base) gets a placeholder instead
+     ;; of the full name, which just repeats the group's own label.
      :label-form (let* ((full (buffer-name item))
                          (suffix (substring full (length (agent-shell--treemacs-base-name item)))))
-                   (if (string-empty-p suffix) full suffix))
+                   (if (string-empty-p suffix) "•" suffix))
      :state treemacs-agent-shell-buffer-state
      :key-form (buffer-name item)
      :more-properties (:agent-shell-buffer item)))
@@ -281,12 +262,17 @@ on every call, even against a freshly-rebuilt buffer."
   (defun agent-shell--treemacs-refresh-section ()
     (-when-let (win (treemacs-get-local-window))
       (with-selected-window win
-        (save-excursion
-          (goto-char (point-min))
-          (-when-let (node (treemacs-node-at-point))
-            (when (eq (treemacs-button-get node :state) treemacs-agent-shells-open-state)
-              (treemacs-collapse-agent-shells)
-              (treemacs-expand-agent-shells))))
+        ;; Look up "Agent Shells" by dom key, not (point-min) -- it's no
+        ;; longer guaranteed to be the first thing in the buffer now that
+        ;; Open Buffers also registers at :position 'top (add-to-list
+        ;; prepends, so whichever section registered later renders first).
+        (-when-let (dom-node (treemacs-find-in-dom (list :custom "Agent Shells")))
+          (-when-let (pos (treemacs-dom-node->position dom-node))
+            (when (eq (treemacs-button-get pos :state) treemacs-agent-shells-open-state)
+              (save-excursion
+                (goto-char pos)
+                (treemacs-collapse-agent-shells)
+                (treemacs-expand-agent-shells)))))
         ;; hl-line-mode's own post-command-hook entry only re-anchors the
         ;; *selected* window's overlay, and treemacs is never selected
         ;; when you're focused on a split elsewhere -- so unlike
@@ -320,38 +306,38 @@ on every call, even against a freshly-rebuilt buffer."
 
   (defun agent-shell--treemacs-goto-buffer (buf)
     "Move point/overlay in the (already-selected) treemacs window to BUF,
-expanding the section/group as needed."
-    (let* ((name (buffer-name buf))
-           (base (agent-shell--treemacs-base-name buf))
-           (grouped (> (length (seq-filter (lambda (b) (equal (agent-shell--treemacs-base-name b) base))
-                                            (agent-shell--treemacs-buffers)))
-                       1))
-           (path (if grouped
-                     (list :custom "Agent Shells" base name)
-                   (list :custom "Agent Shells" name))))
-      ;; goto-extension-node's auto-expand fallback assumes directory-node
-      ;; semantics and doesn't know how to open our custom section/group
-      ;; nodes, so expand them explicitly first.
-      (agent-shell--treemacs-ensure-expanded
-       (list :custom "Agent Shells") treemacs-agent-shells-closed-state
-       #'treemacs-expand-agent-shells)
-      (when grouped
-        (agent-shell--treemacs-ensure-expanded
-         (list :custom "Agent Shells" base) treemacs-agent-shell-group-closed-state
-         #'treemacs-expand-agent-shell-group))
-      (treemacs-goto-extension-node path)
-      (treemacs--update-selected-label-overlay)))
+expanding/refreshing the section/group as needed."
+    (when (treemacs--custom-top-level-in-dom-p (list :custom "Agent Shells"))
+      (let* ((name (buffer-name buf))
+             (base (agent-shell--treemacs-base-name buf))
+             (grouped (> (length (seq-filter (lambda (b) (equal (agent-shell--treemacs-base-name b) base))
+                                              (agent-shell--treemacs-buffers)))
+                         1))
+             (path (if grouped
+                       (list :custom "Agent Shells" base name)
+                     (list :custom "Agent Shells" name)))
+             (root-immediate-child (if grouped (list :custom "Agent Shells" base) path)))
+        ;; goto-extension-node's auto-expand fallback assumes directory-node
+        ;; semantics and doesn't know how to open our custom section/group
+        ;; nodes, so expand/refresh them explicitly first.
+        (treemacs--ensure-custom-node-visible
+         (list :custom "Agent Shells") root-immediate-child
+         treemacs-agent-shells-open-state treemacs-agent-shells-closed-state
+         #'treemacs-expand-agent-shells #'treemacs-collapse-agent-shells)
+        (when grouped
+          (treemacs--ensure-custom-node-visible
+           (list :custom "Agent Shells" base) path
+           treemacs-agent-shell-group-open-state treemacs-agent-shell-group-closed-state
+           #'treemacs-expand-agent-shell-group #'treemacs-collapse-agent-shell-group))
+        (treemacs-goto-extension-node path)
+        (treemacs--update-selected-label-overlay))))
 
   (defun agent-shell--treemacs-clear-if-agent-shell-overlay ()
-    "Clear the label/marquee overlay if it's parked on an agent-shell node.
+    "Clear the agent-shell section's tracked overlay.
 Unlike files, an agent-shell isn't \"current\" once you're no longer
-looking at it."
-    (when (and treemacs--selected-label-overlay
-               (overlay-buffer treemacs--selected-label-overlay)
-               (get-text-property (overlay-start treemacs--selected-label-overlay)
-                                   :agent-shell-buffer))
-      (treemacs--marquee-stop)
-      (delete-overlay treemacs--selected-label-overlay)))
+looking at it -- files/open-buffers keep their own independent slot
+and are untouched by this."
+    (treemacs--clear-tracked-overlay 'agent-shell))
 
   (defun agent-shell--treemacs-follow-now ()
     (setq agent-shell--treemacs-follow-timer nil)
