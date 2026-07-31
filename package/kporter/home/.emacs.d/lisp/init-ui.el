@@ -794,7 +794,8 @@ Marquees the label text if it would overflow the panel width."
 
   (defun open-buffers--treemacs-buffers ()
     "Live file-visiting buffers and *scratch*, for the treemacs Open Buffers section."
-    (sort (seq-filter #'open-buffers--treemacs-shown-p (buffer-list))
+    (sort (cons (get-buffer-create "*scratch*")
+                (seq-filter #'buffer-file-name (buffer-list)))
           :key #'buffer-name :lessp #'string<))
 
   (defun open-buffers--treemacs-visit (&optional _arg)
@@ -901,19 +902,20 @@ Marquees the label text if it would overflow the panel width."
     (-when-let (win (treemacs-get-local-window))
       (unless (eq (selected-window) win)
         (with-selected-window win
-          (let* ((dom-node (treemacs-find-in-dom (list :custom "Open Buffers")))
-                 (pos (and dom-node (treemacs-dom-node->position dom-node))))
-            (when (and pos (eq (treemacs-button-get pos :state)
-                               treemacs-open-buffers-open-state))
-              (let ((ws (copy-marker (window-start))))
-                (save-excursion
-                  (goto-char pos)
-                  (treemacs-collapse-open-buffers)
-                  (treemacs-expand-open-buffers))
-                (hl-line-highlight)
-                (set-window-start win ws)
-                (goto-char ws)
-                (set-marker ws nil))))))))
+          (with-current-buffer (treemacs-get-local-buffer)
+            (let* ((dom-node (treemacs-find-in-dom (list :custom "Open Buffers")))
+                   (pos (and dom-node (treemacs-dom-node->position dom-node))))
+              (when (and pos (eq (treemacs-button-get pos :state)
+                                 treemacs-open-buffers-open-state))
+                (let ((ws (copy-marker (window-start))))
+                  (save-excursion
+                    (goto-char pos)
+                    (treemacs-collapse-open-buffers)
+                    (treemacs-expand-open-buffers))
+                  (hl-line-highlight)
+                  (set-window-start win ws)
+                  (goto-char ws)
+                  (set-marker ws nil)))))))))
 
   (add-hook 'kill-buffer-hook
             (lambda ()
