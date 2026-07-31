@@ -34,8 +34,100 @@
               (make-directory session-dir t)
               (with-temp-file project-file
                 (insert cwd)))
-            (expand-file-name subdir session-dir)))))
+            (expand-file-name subdir session-dir))))
+  ;; M-left (better-jumper-jump-backward) uses per-window jump lists. Switching
+  ;; INTO an agent-shell window records the jump in the source window's list,
+  ;; leaving the agent-shell window's list empty. Fix: after any navigation
+  ;; that lands in an agent-shell window, record the origin in THIS window's
+  ;; list so M-left can navigate back.
+  (defun my-record-jump-into-agent-shell (orig &rest args)
+    (let ((src-buf (current-buffer))
+          (src-pos (point)))
+      (apply orig args)
+      (when (derived-mode-p 'agent-shell-mode)
+        (with-current-buffer src-buf
+          (better-jumper-set-jump src-pos)))))
+  (advice-add 'agent-shell-toggle :around #'my-record-jump-into-agent-shell)
+  (advice-add 'switch-to-buffer   :around #'my-record-jump-into-agent-shell)
+  (advice-add 'pop-to-buffer      :around #'my-record-jump-into-agent-shell))
 
+;; agent-shell output regions are marked agent-shell-markdown-frozen which
+;; blocks jit-lock, so font-lock keywords never fire there. Apply link-face
+;; overlays instead, with mouse-1 click handlers, scanning the full buffer
+;; after each output chunk (debounced via idle timer).
+(defvar aerospike--link-keymap
+  (let ((map (make-sparse-keymap)))
+    (define-key map [mouse-1] #'aerospike--link-mouse-follow)
+    (define-key map [mouse-2] #'aerospike--link-mouse-follow)
+    map)
+  "Keymap applied to aerospike link overlays.")
+
+(defun aerospike--link-mouse-follow (event)
+  (interactive "e")
+  (let* ((pos (posn-point (event-start event)))
+         (ov  (cl-find-if (lambda (o) (overlay-get o 'aerospike-link-action))
+                          (overlays-at pos))))
+    (when ov (funcall (overlay-get ov 'aerospike-link-action)))))
+
+(defvar-local aerospike--link-overlay-timer nil)
+
+(defun aerospike--link-overlays-apply (buf)
+  "Apply clickable link overlays for Jira tickets and relative paths throughout BUF."
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      (setq aerospike--link-overlay-timer nil)
+      ;; Jira tickets
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward aerospike-jira-ticket-re nil t)
+          (let* ((mbeg   (match-beginning 0))
+                 (mend   (match-end 0))
+                 (ticket (match-string 0)))
+            (unless (cl-some (lambda (o) (overlay-get o 'aerospike-link))
+                             (overlays-in mbeg mend))
+              (let ((action (let ((u (concat "https://aerospike.atlassian.net/browse/" ticket)))
+                              (lambda () (browse-url u))))
+                    (ov (make-overlay mbeg mend)))
+                (overlay-put ov 'face 'link)
+                (overlay-put ov 'mouse-face 'highlight)
+                (overlay-put ov 'help-echo (concat "mouse-1: open " ticket " in browser"))
+                (overlay-put ov 'keymap aerospike--link-keymap)
+                (overlay-put ov 'aerospike-link t)
+                (overlay-put ov 'aerospike-link-action action)
+                (overlay-put ov 'priority 10))))))
+      ;; Relative file paths
+      (let ((cwd (if (derived-mode-p 'agent-shell-mode) (agent-shell-cwd) default-directory)))
+        (save-excursion
+          (goto-char (point-min))
+          (while (re-search-forward aerospike-relative-path-re nil t)
+            (let* ((mbeg (match-beginning 1))
+                   (mend (match-end 1))
+                   (rel  (match-string 1))
+                   (full (expand-file-name rel cwd)))
+              (when (and (file-exists-p full)
+                         (not (cl-some (lambda (o) (overlay-get o 'aerospike-link))
+                                       (overlays-in mbeg mend))))
+                (let ((action (let ((f full)) (lambda () (find-file f))))
+                      (ov (make-overlay mbeg mend)))
+                  (overlay-put ov 'face 'link)
+                  (overlay-put ov 'mouse-face 'highlight)
+                  (overlay-put ov 'help-echo (concat "mouse-1: open " full))
+                  (overlay-put ov 'keymap aerospike--link-keymap)
+                  (overlay-put ov 'aerospike-link t)
+                  (overlay-put ov 'aerospike-link-action action)
+                  (overlay-put ov 'priority 10))))))))))
+
+(defun aerospike--link-overlays-schedule ()
+  (when aerospike--link-overlay-timer
+    (cancel-timer aerospike--link-overlay-timer))
+  (setq aerospike--link-overlay-timer
+        (run-with-idle-timer 0.5 nil #'aerospike--link-overlays-apply (current-buffer))))
+
+(add-hook 'agent-shell-mode-hook
+          (lambda ()
+            (add-hook 'comint-output-filter-functions
+                      (lambda (_) (aerospike--link-overlays-schedule))
+                      nil t)))
 (use-package agent-shell-attention
   :after agent-shell
   :vc (:url "https://github.com/ultronozm/agent-shell-attention.el")
@@ -168,7 +260,7 @@ Reuses `agent-shell-attention''s own tracking rather than re-deriving it."
 
   (defun agent-shell--treemacs-status-icon (buf)
     (pcase (agent-shell--treemacs-status buf)
-      ('busy       (treemacs-as-icon "⚙️ "))
+      ('busy       (treemacs-as-icon (concat (aref agent-shell--spinner-frames agent-shell--spinner-index) " ") 'face '(:height 1.5)))
       ('pending    (treemacs-as-icon "💬 "))
       ('permission (treemacs-as-icon "🔒 "))
       (_           (treemacs-as-icon "  "))))
@@ -259,20 +351,101 @@ Returns a list where each element is either a lone buffer, or
   ;; `treemacs--do-collapse-agent-shells' / `treemacs--do-expand-agent-shells'
   ;; directly with a manually re-fetched dom marker duplicated the section
   ;; on every call, even from a freshly-rebuilt buffer.
+  ;; --- Self-heal deadlock fix (respect deliberate collapse) ---
+  ;; A collapsed top-level section leaves `treemacs-dom', so the periodic
+  ;; refresh -- which locates the section via the dom -- could never reopen
+  ;; it once collapsed. It now reopens a collapsed section on the next tick,
+  ;; UNLESS the user collapsed it themselves. Track that intent by advising
+  ;; the interactive expand/collapse commands (user TAB/RET routes through
+  ;; them), suppressing the flag around our own programmatic calls.
+  (defvar agent-shell--treemacs-user-collapsed nil
+    "Non-nil once the user deliberately collapses the Agent Shells section.
+Suppresses the periodic refresh's auto-reopen until they expand it again.")
+  (defvar agent-shell--treemacs-suppress-intent nil
+    "Bound non-nil around programmatic expand/collapse so the intent-tracking
+advice ignores those internal calls.")
+
+  (defun agent-shell--treemacs-note-user-collapse (&rest _)
+    (unless agent-shell--treemacs-suppress-intent
+      (setq agent-shell--treemacs-user-collapsed t)))
+  (defun agent-shell--treemacs-note-user-expand (&rest _)
+    (unless agent-shell--treemacs-suppress-intent
+      (setq agent-shell--treemacs-user-collapsed nil)))
+  (advice-add 'treemacs-collapse-agent-shells :before
+              #'agent-shell--treemacs-note-user-collapse)
+  (advice-add 'treemacs-expand-agent-shells :before
+              #'agent-shell--treemacs-note-user-expand)
+
+  (defun agent-shell--treemacs-section-pos ()
+    "Buffer position of the top-level \"Agent Shells\" header button, or nil.
+Found by scan (not the dom) so it resolves even while the section is
+collapsed and therefore absent from `treemacs-dom'."
+    (save-excursion
+      (goto-char (point-min))
+      ;; count-current t on the FIRST call (catch a button at point-min);
+      ;; plain next-button on each step so pos always advances strictly --
+      ;; next-button with count-current would return the same position and
+      ;; spin forever.
+      (let ((pos (next-button (point-min) t))
+            found)
+        (while (and pos (not found))
+          (if (equal (treemacs-button-get pos :key) "Agent Shells")
+              (setq found pos)
+            (setq pos (next-button pos))))
+        found)))
+
   (defun agent-shell--treemacs-refresh-section ()
     (-when-let (win (treemacs-get-local-window))
+      (let* ((orig-win (selected-window))
+             (in-treemacs (eq orig-win win))
+             (focused-buf (window-buffer orig-win)))
+      ;; The collapse+expand below deletes and reinserts the whole section,
+      ;; which stretches hl-line across every shell and resets point. That's
+      ;; fine when the user is elsewhere, but disruptive when they're inside
+      ;; the tree selecting a shell -- so skip the entire refresh then. The
+      ;; spinner just pauses until they leave the tree.
+      (unless in-treemacs
       (with-selected-window win
+        ;; The collapse+expand rewrites the section at the top of the buffer
+        ;; every spinner tick (0.3s while a shell is busy). That shifts text
+        ;; above the user's scrolled window-start, invalidating it, so redisplay
+        ;; recomputes and walks the window up to keep its point visible. Anchor
+        ;; window-start with a marker (survives the edits) and drop point onto
+        ;; the top visible line at the end, so redisplay has nothing to chase.
+        (let ((ws (copy-marker (window-start))))
         ;; Look up "Agent Shells" by dom key, not (point-min) -- it's no
         ;; longer guaranteed to be the first thing in the buffer now that
         ;; Open Buffers also registers at :position 'top (add-to-list
         ;; prepends, so whichever section registered later renders first).
-        (-when-let (dom-node (treemacs-find-in-dom (list :custom "Agent Shells")))
-          (-when-let (pos (treemacs-dom-node->position dom-node))
-            (when (eq (treemacs-button-get pos :state) treemacs-agent-shells-open-state)
+        ;; But that key is only in the dom while the section is EXPANDED --
+        ;; a collapsed top-level section drops out of the dom entirely, so a
+        ;; dom-only lookup could never reopen it (the self-heal deadlock:
+        ;; whatever transiently collapses the section leaves it stuck). So
+        ;; handle both states below.
+        (let* ((dom-node (treemacs-find-in-dom (list :custom "Agent Shells")))
+               (pos (and dom-node (treemacs-dom-node->position dom-node))))
+          (cond
+           ;; Open and in the dom: redraw in place to refresh icons/grouping.
+           ((and pos (eq (treemacs-button-get pos :state)
+                         treemacs-agent-shells-open-state))
+            (let ((agent-shell--treemacs-suppress-intent t))
               (save-excursion
                 (goto-char pos)
                 (treemacs-collapse-agent-shells)
-                (treemacs-expand-agent-shells)))))
+                (treemacs-expand-agent-shells))))
+           ;; Collapsed/absent, NOT collapsed on purpose, and there are
+           ;; shells to show: reopen it. The header button is still in the
+           ;; buffer even while collapsed (just not in the dom), so locate
+           ;; it by scan. This is what breaks the deadlock.
+           ((and (not agent-shell--treemacs-user-collapsed)
+                 (agent-shell--treemacs-buffers))
+            (-when-let (hpos (agent-shell--treemacs-section-pos))
+              (when (eq (treemacs-button-get hpos :state)
+                        treemacs-agent-shells-closed-state)
+                (let ((agent-shell--treemacs-suppress-intent t))
+                  (save-excursion
+                    (goto-char hpos)
+                    (treemacs-expand-agent-shells))))))))
         ;; hl-line-mode's own post-command-hook entry only re-anchors the
         ;; *selected* window's overlay, and treemacs is never selected
         ;; when you're focused on a split elsewhere -- so unlike
@@ -286,16 +459,35 @@ Returns a list where each element is either a lone buffer, or
         ;; rather than trusting wherever point landed post-refresh (which
         ;; is wherever treemacs-expand-agent-shells happens to leave it --
         ;; e.g. the group's first child -- not necessarily what's focused).
-        (let ((mru-buf (window-buffer (or (get-mru-window (selected-frame) nil :not-selected) win))))
-          (if (with-current-buffer mru-buf (derived-mode-p 'agent-shell-mode))
-              (agent-shell--treemacs-goto-buffer mru-buf)
-            (agent-shell--treemacs-clear-if-agent-shell-overlay))))))
+        (if (with-current-buffer focused-buf (derived-mode-p 'agent-shell-mode))
+            (agent-shell--treemacs-goto-buffer focused-buf)
+          (agent-shell--treemacs-clear-if-agent-shell-overlay))
+        (set-window-start win ws)
+        (goto-char ws)
+        (set-marker ws nil)))))))
+
+  (defvar agent-shell--spinner-frames ["✱" "✲" "✳" "✺" "✹" "✸" "✷"])
+  (setq agent-shell--spinner-frames ["✱" "✲" "✳" "✺" "✹" "✸" "✷"])
+  (defvar agent-shell--spinner-index 0)
+  (defvar agent-shell--treemacs-spinner-timer nil)
 
   (defvar agent-shell--treemacs-refresh-timer nil)
   (when agent-shell--treemacs-refresh-timer
     (cancel-timer agent-shell--treemacs-refresh-timer))
   (setq agent-shell--treemacs-refresh-timer
         (run-with-timer 3 3 #'agent-shell--treemacs-refresh-section))
+
+  (defun agent-shell--treemacs-tick-spinner ()
+    (setq agent-shell--spinner-index
+          (% (1+ agent-shell--spinner-index) (length agent-shell--spinner-frames)))
+    (when (seq-some (lambda (b) (eq (agent-shell--treemacs-status b) 'busy))
+                    (agent-shell--treemacs-buffers))
+      (agent-shell--treemacs-refresh-section)))
+
+  (when agent-shell--treemacs-spinner-timer
+    (cancel-timer agent-shell--treemacs-spinner-timer))
+  (setq agent-shell--treemacs-spinner-timer
+        (run-with-timer 0.3 0.3 #'agent-shell--treemacs-tick-spinner))
 
   ;; Follow-mode's own file-follow only watches `buffer-file-name'/dired, so
   ;; it silently ignores agent-shell buffers. This mirrors its debounce
@@ -316,7 +508,17 @@ expanding/refreshing the section/group as needed."
              (path (if grouped
                        (list :custom "Agent Shells" base name)
                      (list :custom "Agent Shells" name)))
-             (root-immediate-child (if grouped (list :custom "Agent Shells" base) path)))
+             (root-immediate-child (if grouped (list :custom "Agent Shells" base) path))
+             ;; This runs only when treemacs is NOT the selected window (a
+             ;; background follow driven by agent-shell output). Moving point
+             ;; to the node and letting treemacs recenter would yank the user's
+             ;; scroll to the top every time the shell emits output. The node's
+             ;; highlight is a standalone overlay, so after updating it we drop
+             ;; point back onto the top visible line and restore window-start --
+             ;; point must land inside the viewport or redisplay re-scrolls to
+             ;; reveal it, defeating the restore.
+             (twin (selected-window))
+             (ws (copy-marker (window-start twin))))
         ;; goto-extension-node's auto-expand fallback assumes directory-node
         ;; semantics and doesn't know how to open our custom section/group
         ;; nodes, so expand/refresh them explicitly first.
@@ -330,7 +532,10 @@ expanding/refreshing the section/group as needed."
            treemacs-agent-shell-group-open-state treemacs-agent-shell-group-closed-state
            #'treemacs-expand-agent-shell-group #'treemacs-collapse-agent-shell-group))
         (treemacs-goto-extension-node path)
-        (treemacs--update-selected-label-overlay))))
+        (treemacs--update-selected-label-overlay)
+        (set-window-start twin ws)
+        (goto-char ws)
+        (set-marker ws nil))))
 
   (defun agent-shell--treemacs-clear-if-agent-shell-overlay ()
     "Clear the agent-shell section's tracked overlay.
@@ -341,15 +546,21 @@ and are untouched by this."
 
   (defun agent-shell--treemacs-follow-now ()
     (setq agent-shell--treemacs-follow-timer nil)
-    ;; Capture the mode/buffer BEFORE selecting the treemacs window --
-    ;; with-selected-window changes current-buffer to treemacs itself.
-    (let ((is-agent-shell (derived-mode-p 'agent-shell-mode))
-          (buf (current-buffer)))
+    ;; Use the selected window's buffer, not current-buffer. buffer-list-update-hook
+    ;; fires for background process output too (e.g. agent-shell writing output), and
+    ;; by the time this 0-delay timer fires current-buffer may be an agent-shell buffer
+    ;; that Emacs set internally -- not what the user is looking at. selected-window
+    ;; always reflects the user's actual focus, unaffected by process I/O.
+    (let* ((orig-win (selected-window))
+           (focused-buf (window-buffer orig-win))
+           (is-agent-shell (with-current-buffer focused-buf (derived-mode-p 'agent-shell-mode))))
       (-when-let (win (treemacs-get-local-window))
-        (with-selected-window win
-          (if is-agent-shell
-              (agent-shell--treemacs-goto-buffer buf)
-            (agent-shell--treemacs-clear-if-agent-shell-overlay))))))
+        ;; Don't touch the tree while the user is navigating it directly.
+        (unless (eq orig-win win)
+          (with-selected-window win
+            (if is-agent-shell
+                (agent-shell--treemacs-goto-buffer focused-buf)
+              (agent-shell--treemacs-clear-if-agent-shell-overlay)))))))
 
   (defun agent-shell--treemacs-follow ()
     ;; run-with-timer (not run-with-idle-timer): an idle timer only fires

@@ -137,5 +137,86 @@
   :bind
   ("C-c u" . vundo))
 
+(use-package hyperbole
+  :ensure t
+  :demand t
+  :init
+  (hyperbole-mode 1)
+  :config
+  ;; Bare Jira ticket tags like SERVER-971 or AER-6936 open in the browser.
+  ;; Full https://aerospike.atlassian.net/browse/... URLs are already handled
+  ;; by hyperbole's built-in URL ibtype.
+  (defconst aerospike-jira-ticket-re
+    "\\b\\(AER\\|DOCS\\|SERVER\\|QE\\|SECOPS\\|TOOLS\\|CLIENT\\)-[0-9]+"
+    "Regex matching Aerospike Jira ticket tags.")
+  (defib aerospike-jira-ticket ()
+    "Open Aerospike Jira ticket at point (e.g. SERVER-971, AER-6936)."
+    (unless (derived-mode-p 'treemacs-mode)
+      (when (thing-at-point-looking-at aerospike-jira-ticket-re 50)
+        (ibut:label-set (match-string 0) (match-beginning 0) (match-end 0))
+        (hact 'browse-url
+              (concat "https://aerospike.atlassian.net/browse/" (match-string 0))))))
+  ;; Relative file paths like as/include/fabric/partition.h (optionally :LINE)
+  ;; in agent-shell or any buffer, resolved against agent-shell-cwd or
+  ;; default-directory. Only activates when the resolved file actually exists.
+  (defconst aerospike-relative-path-re
+    ;; Leading [^/...] prevents matching substrings of absolute paths
+    ;; (e.g. `home/...' inside `/home/...').  \b after the extension
+    ;; prevents `.h' matching inside `.html'.  Longer extensions before
+    ;; shorter in the alternation so `html?' wins over `hh?'.
+    (concat "\\(?:^\\|[^/[:alnum:]_.-]\\)"
+            "\\([[:alnum:]_.][[:alnum:]_.-]*/[[:alnum:]_./-]+"
+            "\\.\\(?:html?\\|txt\\|log\\|md\\|cpp\\|cc\\|hh?\\|c\\)\\)"
+            "\\b"
+            "\\(?::\\([0-9]+\\)\\)?")
+    "Regex for relative file paths with recognized extensions, optionally :LINE.
+Group 1 = path, group 2 = line number.")
+  (defib aerospike-relative-path ()
+    "Open relative file path at point resolved from the buffer's working directory."
+    (unless (derived-mode-p 'treemacs-mode)
+      (when (thing-at-point-looking-at aerospike-relative-path-re 300)
+      (let* ((rel  (match-string 1))
+             (line (when (match-string 2) (string-to-number (match-string 2))))
+             (base (if (derived-mode-p 'agent-shell-mode)
+                       (agent-shell-cwd)
+                     default-directory))
+             (full (expand-file-name rel base)))
+        (when (file-exists-p full)
+          (ibut:label-set rel (match-beginning 1) (match-end 1))
+          (if line
+              (hact 'link-to-file-line full line)
+            (hact 'link-to-file full)))))))
+  ;; Visual link highlighting for Jira tickets and relative file paths.
+  (defun aerospike-jira-ticket--fontify ()
+    (unless (derived-mode-p 'treemacs-mode 'special-mode)
+    ;; Remove any stale relative-path keywords (old regex used a-zA-Z0-9 char
+    ;; class; new one uses [:alnum:]).  font-lock-remove-keywords equality
+    ;; comparison is fragile, so filter by unique substring instead.
+    (setq-local font-lock-keywords
+                (cl-remove-if
+                 (lambda (kw)
+                   (and (consp kw) (stringp (car kw))
+                        (string-match-p "a-zA-Z0-9.*/" (car kw))))
+                 font-lock-keywords))
+    (font-lock-add-keywords
+     nil
+     `((,aerospike-jira-ticket-re 0 'link t)
+       (,aerospike-relative-path-re 1 'link t))
+     'append)))
+  (add-hook 'font-lock-mode-hook #'aerospike-jira-ticket--fontify))
+
+(defun my-open-in-file-browser ()
+  "Open the current file's directory in the system file browser."
+  (interactive)
+  (let ((dir (if (buffer-file-name)
+                 (file-name-directory (buffer-file-name))
+               default-directory)))
+    (call-process "xdg-open" nil 0 nil dir)))
+
+(defun my-open-buffer-in-browser ()
+  "Open the current buffer in the default browser."
+  (interactive)
+  (browse-url-of-buffer))
+
 (provide 'init-editing)
 ;;; init-editing.el ends here

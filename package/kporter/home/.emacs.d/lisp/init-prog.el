@@ -34,6 +34,7 @@
 (dolist (hook '(prog-mode-hook))
   (add-hook hook
             (lambda ()
+              (toggle-truncate-lines 1)
               (unless (derived-mode-p 'c-ts-mode 'c++-ts-mode 'rust-ts-mode)
                 (font-lock-add-keywords
                  nil

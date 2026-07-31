@@ -694,9 +694,75 @@ Marquees the label text if it would overflow the panel width."
       (setq treemacs--file-kind-clear-timer
             (run-with-timer 0 nil #'treemacs--file-kind-clear-now))))
   (add-hook 'buffer-list-update-hook #'treemacs--file-kind-clear-on-blur)
+  ;; treemacs-follow-mode only expands the trail down to the current file; it
+  ;; never collapses old trails, so expanded dirs pile up across a session.
+  ;; Auto-collapse any expanded directory with no open file-visiting buffer
+  ;; beneath it. Debounced on idle, skipped while you're navigating the tree
+  ;; yourself (so it never fights your own expand/collapse). `keep' holds every
+  ;; ancestor dir of an open file; anything expanded and not in it gets folded,
+  ;; shallowest-first so collapsing a parent drops its descendants for free.
+  (defvar treemacs--collapse-closed-timer nil)
+  (defun treemacs--collapse-closed-dirs-now ()
+    (setq treemacs--collapse-closed-timer nil)
+    (-when-let (win (treemacs-get-local-window))
+      (unless (eq (selected-window) win)
+        (with-selected-window win
+          (let ((keep (make-hash-table :test #'equal)))
+            (dolist (buf (buffer-list))
+              (-when-let (f (buffer-file-name buf))
+                (let ((d (directory-file-name (file-name-directory f))))
+                  (while (and d (not (gethash d keep)) (not (string= d "/")))
+                    (puthash d t keep)
+                    (setq d (directory-file-name (file-name-directory d)))))))
+            (let (targets)
+              (maphash
+               (lambda (key node)
+                 (when (and (stringp key) (not (gethash key keep)))
+                   (-when-let (pos (treemacs-dom-node->position node))
+                     (when (eq (treemacs-button-get pos :state) 'dir-node-open)
+                       (push key targets)))))
+               treemacs-dom)
+              ;; save-excursion restores point but not the scroll position;
+              ;; folding dirs above the viewport would otherwise snap the
+              ;; window to the top mid-scroll. Restore window-start too. Both
+              ;; markers shift equally for deletions above them, so point stays
+              ;; on-screen relative to the restored top.
+              (let ((ws (copy-marker (window-start))))
+                (save-excursion
+                  (dolist (key (sort targets (lambda (a b) (< (length a) (length b)))))
+                    ;; find-in-dom returns nil once a parent collapse has
+                    ;; already dropped this node -- re-check state so we only
+                    ;; fold what's still open.
+                    (-when-let (node (treemacs-find-in-dom key))
+                      (-when-let (pos (treemacs-dom-node->position node))
+                        (when (eq (treemacs-button-get pos :state) 'dir-node-open)
+                          (goto-char pos)
+                          (treemacs-toggle-node))))))
+                (set-window-start win ws)
+                (set-marker ws nil))))
+          (treemacs--update-selected-label-overlay)))))
+  (defun treemacs--collapse-closed-dirs-schedule ()
+    (unless treemacs--collapse-closed-timer
+      (setq treemacs--collapse-closed-timer
+            (run-with-idle-timer 1 nil #'treemacs--collapse-closed-dirs-now))))
+  (add-hook 'buffer-list-update-hook #'treemacs--collapse-closed-dirs-schedule)
+  ;; When treemacs is not the selected window, follow-mode still parks its
+  ;; window-point near the top (the current file/shell node). Mouse-wheeling
+  ;; the tree moves window-start but not that point, so redisplay keeps hauling
+  ;; the view back up to reveal it. Pin window-point to the top visible line on
+  ;; every scroll of an unselected tree, so point is always on-screen and
+  ;; redisplay has nothing to chase. Paired with scroll-margin 0 (below) so the
+  ;; top line itself satisfies the margin.
+  (defun treemacs--pin-point-to-scroll (win new-start)
+    (when (and (not (eq win (selected-window)))
+               (eq (window-buffer win) (current-buffer))
+               (/= (window-point win) new-start))
+      (set-window-point win new-start)))
   :hook
   (treemacs-mode . (lambda ()
                      (display-line-numbers-mode -1)
+                     (setq-local scroll-margin 0)
+                     (add-hook 'window-scroll-functions #'treemacs--pin-point-to-scroll nil t)
                      ;; defvar-local's default value is one shared hash
                      ;; table until something setq's the variable in this
                      ;; buffer -- puthash/gethash alone never trigger
@@ -723,9 +789,12 @@ Marquees the label text if it would overflow the panel width."
 ;; refreshes on collapse/expand (TAB) like Agent Shells did before its
 ;; refresh timer was added; ask if periodic refresh turns out to matter.
 (with-eval-after-load 'treemacs
+  (defun open-buffers--treemacs-shown-p (b)
+    (or (buffer-file-name b) (string= (buffer-name b) "*scratch*")))
+
   (defun open-buffers--treemacs-buffers ()
-    "Live file-visiting buffers, for the treemacs Open Buffers section."
-    (sort (seq-filter #'buffer-file-name (buffer-list))
+    "Live file-visiting buffers and *scratch*, for the treemacs Open Buffers section."
+    (sort (seq-filter #'open-buffers--treemacs-shown-p (buffer-list))
           :key #'buffer-name :lessp #'string<))
 
   (defun open-buffers--treemacs-visit (&optional _arg)
@@ -785,13 +854,25 @@ Marquees the label text if it would overflow the panel width."
 
   (defun open-buffers--treemacs-goto-buffer (buf)
     (when (treemacs--custom-top-level-in-dom-p (list :custom "Open Buffers"))
-      (let ((leaf-path (list :custom "Open Buffers" (buffer-name buf))))
+      ;; This runs with treemacs unselected (a background follow). Moving
+      ;; window-point to the node near the top and leaving it there makes
+      ;; redisplay walk the window back up to keep point visible whenever the
+      ;; user has scrolled elsewhere. The highlight is a standalone overlay, so
+      ;; after setting it we drop point onto the top visible line and restore
+      ;; window-start -- point must stay inside the viewport or redisplay chases
+      ;; it.
+      (let ((leaf-path (list :custom "Open Buffers" (buffer-name buf)))
+            (twin (selected-window))
+            (ws (copy-marker (window-start))))
         (treemacs--ensure-custom-node-visible
          (list :custom "Open Buffers") leaf-path
          treemacs-open-buffers-open-state treemacs-open-buffers-closed-state
          #'treemacs-expand-open-buffers #'treemacs-collapse-open-buffers)
         (treemacs-goto-extension-node leaf-path)
-        (treemacs--update-selected-label-overlay))))
+        (treemacs--update-selected-label-overlay)
+        (set-window-start twin ws)
+        (goto-char ws)
+        (set-marker ws nil))))
 
   (defun open-buffers--treemacs-follow-now ()
     (setq open-buffers--treemacs-follow-timer nil)
@@ -811,7 +892,40 @@ Marquees the label text if it would overflow the panel width."
       (setq open-buffers--treemacs-follow-timer
             (run-with-timer 0 nil #'open-buffers--treemacs-follow-now))))
 
-  (add-hook 'buffer-list-update-hook #'open-buffers--treemacs-follow))
+  (add-hook 'buffer-list-update-hook #'open-buffers--treemacs-follow)
+
+  (defvar open-buffers--treemacs-refresh-timer nil)
+
+  (defun open-buffers--treemacs-refresh-section ()
+    "Collapse+expand the Open Buffers section to flush stale nodes."
+    (-when-let (win (treemacs-get-local-window))
+      (unless (eq (selected-window) win)
+        (with-selected-window win
+          (let* ((dom-node (treemacs-find-in-dom (list :custom "Open Buffers")))
+                 (pos (and dom-node (treemacs-dom-node->position dom-node))))
+            (when (and pos (eq (treemacs-button-get pos :state)
+                               treemacs-open-buffers-open-state))
+              (let ((ws (copy-marker (window-start))))
+                (save-excursion
+                  (goto-char pos)
+                  (treemacs-collapse-open-buffers)
+                  (treemacs-expand-open-buffers))
+                (hl-line-highlight)
+                (set-window-start win ws)
+                (goto-char ws)
+                (set-marker ws nil))))))))
+
+  (add-hook 'kill-buffer-hook
+            (lambda ()
+              (when (open-buffers--treemacs-shown-p (current-buffer))
+                (when open-buffers--treemacs-refresh-timer
+                  (cancel-timer open-buffers--treemacs-refresh-timer))
+                (setq open-buffers--treemacs-refresh-timer
+                      (run-with-timer 0 nil
+                                      (lambda ()
+                                        (setq open-buffers--treemacs-refresh-timer nil)
+                                        (open-buffers--treemacs-refresh-section))))))))
+
 
 (use-package uniquify
   :ensure nil ;; Package doesn't actually exists - will slow emacs startup.

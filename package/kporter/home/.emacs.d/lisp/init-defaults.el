@@ -94,9 +94,13 @@
 
 ;; Dynamic scroll margin: 20% of window height
 (defun my-set-window-scroll-margin (win &optional _start)
-  "Set `scroll-margin' to 20% of WIN height."
+  "Set `scroll-margin' to 20% of WIN height.
+Treemacs is left at margin 0: a large margin combined with follow-mode
+pinning window-point near the top makes redisplay walk the view to the
+top of an unselected, scrolled tree."
   (with-selected-window win
-    (setq-local scroll-margin (max 1 (/ (window-body-height win) 5)))))
+    (unless (derived-mode-p 'treemacs-mode)
+      (setq-local scroll-margin (max 1 (/ (window-body-height win) 5))))))
 
 (add-hook 'window-configuration-change-hook
           (lambda () (my-set-window-scroll-margin (selected-window))))
