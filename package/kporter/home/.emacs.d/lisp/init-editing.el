@@ -186,6 +186,16 @@ Group 1 = path, group 2 = line number.")
           (if line
               (hact 'link-to-file-line full line)
             (hact 'link-to-file full)))))))
+  ;; Left click follows an implicit button.  Anywhere else it is plain
+  ;; `mouse-set-point'.  Mode-local mouse-1 bindings (treemacs, magit...)
+  ;; still win over this global one.
+  (defun my-hyperbole-click (event)
+    "Set point at EVENT, then follow the Hyperbole implicit button there."
+    (interactive "e")
+    (mouse-set-point event)
+    (when (and (not (region-active-p)) (ibut:at-p))
+      (action-key)))
+  (global-set-key [mouse-1] #'my-hyperbole-click)
   ;; Visual link highlighting for Jira tickets and relative file paths.
   (defun aerospike-jira-ticket--fontify ()
     (unless (derived-mode-p 'treemacs-mode 'special-mode)

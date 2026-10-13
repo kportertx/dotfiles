@@ -352,6 +352,8 @@ targets."
                '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
                  nil
                  (window-parameters (mode-line-format . none))))
+  ;; Follow the Hyperbole button at point from any target type.
+  (define-key embark-general-map (kbd "M-RET") #'hkey-either)
   ;; Add agent-shell actions for regions
   (define-key embark-region-map (kbd "g") #'agent-shell-send-region)
   (define-key embark-region-map (kbd "G") #'agent-shell-send-region-to)
