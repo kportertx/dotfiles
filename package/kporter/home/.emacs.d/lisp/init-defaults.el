@@ -117,5 +117,11 @@ top of an unselected, scrolled tree."
 (add-hook 'minibuffer-setup-hook #'my-minibuffer-setup-hook)
 (add-hook 'minibuffer-exit-hook #'my-minibuffer-exit-hook)
 
+;; Setting `custom-file' above only tells Custom where to *write* -- it
+;; doesn't load it back in, so package-selected-packages, safe-local-variable-
+;; values, and saved faces silently don't apply on a fresh start unless loaded
+;; explicitly here.
+(load custom-file 'noerror)
+
 (provide 'init-defaults)
 ;;; init-defaults.el ends here

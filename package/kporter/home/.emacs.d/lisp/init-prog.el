@@ -20,6 +20,19 @@
     (unless (treesit-language-available-p lang)
       (treesit-install-language-grammar lang)))
   (treesit-auto-add-to-auto-mode-alist 'all)
+  ;; treesit-auto advises set-auto-mode-0 to rebuild its remap alist on every
+  ;; file visit, probing every grammar on disk (~0.17s/file) -- the cold
+  ;; agenda build over ~900 org files took minutes. set-auto-mode-0 only
+  ;; remaps the one MODE it's given, so probe just that mode's recipe.
+  (define-advice treesit-auto--set-major-remap
+      (:override (&optional mode &rest _) only-this-mode)
+    (when-let* ((recipe (and mode (treesit-auto--get-mode-recipe mode)))
+                (ts-mode (treesit-auto-recipe-ts-mode recipe))
+                ((treesit-auto--ready-p ts-mode)))
+      (setq-local major-mode-remap-alist
+                  (append major-mode-remap-alist
+                          (mapcar (lambda (m) (cons m ts-mode))
+                                  (ensure-list (treesit-auto-recipe-remap recipe)))))))
   (global-treesit-auto-mode))
 
 ;; Highlight `return' and critical cf_* macros across all prog modes.
