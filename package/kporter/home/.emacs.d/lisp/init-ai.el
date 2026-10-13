@@ -17,6 +17,9 @@
         (agent-shell-anthropic-make-authentication :login t))
   (setq agent-shell-preferred-agent-config 'claude-code)
   (setq agent-shell-thought-process-expand-by-default t)
+  ;; Force claude-agent-acp to use the system claude instead of its bundled binary.
+  (setq agent-shell-anthropic-claude-environment
+        (list (concat "CLAUDE_CODE_EXECUTABLE=" (expand-file-name "~/.local/bin/claude"))))
   ;; Pass Emacs MCP server config to Claude when launched from agent-shell.
   (setq agent-shell-anthropic-claude-acp-command
         '("claude-agent-acp"
@@ -41,12 +44,15 @@
   ;; that lands in an agent-shell window, record the origin in THIS window's
   ;; list so M-left can navigate back.
   (defun my-record-jump-into-agent-shell (orig &rest args)
-    (let ((src-buf (current-buffer))
-          (src-pos (point)))
-      (apply orig args)
+    (let* ((src-buf (current-buffer))
+           (src-pos (point))
+           ;; Return ORIG's value: callers like `org-mks' use the buffer
+           ;; `switch-to-buffer'/`pop-to-buffer' return to clean up after.
+           (ret (apply orig args)))
       (when (derived-mode-p 'agent-shell-mode)
         (with-current-buffer src-buf
-          (better-jumper-set-jump src-pos)))))
+          (better-jumper-set-jump src-pos)))
+      ret))
   (advice-add 'agent-shell-toggle :around #'my-record-jump-into-agent-shell)
   (advice-add 'switch-to-buffer   :around #'my-record-jump-into-agent-shell)
   (advice-add 'pop-to-buffer      :around #'my-record-jump-into-agent-shell))

@@ -50,17 +50,23 @@
   :init
   (better-jumper-mode 1)
   :custom
-  ;;(better-jumper-context 'window)
-  ;;(better-jumper-new-window-behavior 'copy)
+  ;; Each window keeps its own history; a new split starts empty rather
+  ;; than copying its parent's.
+  (better-jumper-context 'window)
+  (better-jumper-new-window-behavior 'empty)
   ;;(better-jumper-max-length 100)
   (better-jumper-add-jump-behavior 'replace)
   :preface
   (defun my-jump-advice (oldfun &rest args)
-    (let ((old-pos (point)))
+    (let ((old-buf (current-buffer))
+          (old-pos (point)))
       (apply oldfun args)
-      (when (> (abs (- (line-number-at-pos old-pos)
-                       (line-number-at-pos (point))))
-               1)
+      ;; A buffer change is recorded by the switch-to-buffer advice; recording
+      ;; OLD-POS here would pin it to the new buffer.
+      (when (and (eq (current-buffer) old-buf)
+                 (> (abs (- (line-number-at-pos old-pos)
+                            (line-number-at-pos (point))))
+                    1))
         (better-jumper-set-jump old-pos))))
   (defun my-record-jump-before-buffer-switch (buffer-or-name &rest _)
     "Record current position in better-jumper before switching to a different buffer."
@@ -68,6 +74,10 @@
       (when (and target (not (eq target (current-buffer))))
         (better-jumper-set-jump))))
   :config
+  ;; Non-file buffers are only jump targets if their name matches this
+  ;; (default: *scratch* and *new*).  Add agent-shell ("Claude Agent @ dir").
+  (setq better-jumper--buffer-targets
+        "\\*\\(new\\|scratch\\)\\*\\|\\` *[^ ]+ Agent @ ")
   ;; jump scenarios
   ;; use M-x view-lossage
   (advice-add 'vertico-exit :around #'my-jump-advice)         ; may handle jumps from M-x commands
@@ -357,6 +367,51 @@ targets."
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
 
+(use-package golden-ratio
+  ;; Enlarge the selected window to the golden ratio; others shrink.
+  :ensure t
+  :demand t
+  :config
+  ;; Resize on winum jumps too, not just C-x o.
+  (dolist (n (number-sequence 0 9))
+    (add-to-list 'golden-ratio-extra-commands
+                 (intern (format "winum-select-window-%d" n))))
+  (add-to-list 'golden-ratio-extra-commands 'winum-select-window-0-or-10)
+  ;; Leave popper popups and side panels at their own size.
+  (add-to-list 'golden-ratio-inhibit-functions
+               (lambda () (and (fboundp 'popper-popup-p)
+                               (popper-popup-p (current-buffer)))))
+  (add-to-list 'golden-ratio-exclude-modes 'treemacs-mode)
+  (add-to-list 'golden-ratio-exclude-modes 'ediff-mode)
+  ;; Wide screen: golden-ratio alone leaves the unselected windows lopsided
+  ;; with 3+ columns (e.g. 127/236/19 at 380 cols) and makes the selected
+  ;; window huge.  Cap its width, then share the rest evenly.
+  (setq golden-ratio-adjust-factor 1.0)
+  (defvar my-golden-ratio-max-width 160
+    "Widest the selected window grows, unless an even share is wider.")
+  (defun my-golden-ratio-balance-others (&rest _)
+    (let ((w (selected-window)))
+      (unless (or (window-minibuffer-p w) (one-window-p)
+                  (window-parameter w 'window-side))
+        ;; Measure the column holding W, even when W is stacked inside it.
+        (let* ((col (let ((x w))
+                      (while (and x (not (window-combined-p x t)))
+                        (setq x (window-parent x)))
+                      x))
+               (n (if col (window-combinations (window-parent col) t) 1))
+               (cap (max my-golden-ratio-max-width
+                         (/ (frame-width) n)))
+               (extra (- (window-total-width w) cap)))
+          (when (and (> extra 0) (window-resizable-p w (- extra) t))
+            (window-resize w (- extra) t)))
+        (window-preserve-size w t t)
+        (window-preserve-size w nil t)
+        (unwind-protect (balance-windows)
+          (window-preserve-size w t nil)
+          (window-preserve-size w nil nil)))))
+  (advice-add 'golden-ratio :after #'my-golden-ratio-balance-others)
+  (golden-ratio-mode 1))
+
 (use-package helpful
   ;; Helpful is a replacement for *help* buffers that provides much more
   ;; contextual information.
@@ -413,6 +468,38 @@ targets."
   (completion-styles '(orderless basic partial-completion emacs22))
   (completion-category-defaults nil)
   (completion-category-overrides '((file (styles partial-completion)))))
+
+(use-package popper
+  ;; Transient buffers (help, compilation, messages...) open in one bottom
+  ;; window instead of taking over a main window.  C-` toggles, M-` cycles,
+  ;; C-M-` turns the current buffer into (or out of) a popup.
+  :ensure t
+  :demand t
+  :bind (("C-`"   . popper-toggle)
+         ("M-`"   . popper-cycle)
+         ("C-M-`" . popper-toggle-type))
+  :custom
+  (popper-reference-buffers
+   '("\\*Messages\\*"
+     "\\*Warnings\\*"
+     "\\*Backtrace\\*"
+     "\\*Async Shell Command\\*"
+     "Output\\*$"
+     "\\*eldoc"
+     "\\*xref\\*"
+     "\\*Flymake diagnostics"
+     "\\*Embark Collect"
+     "\\*vc-"
+     "^magit-process:"
+     help-mode
+     helpful-mode
+     compilation-mode
+     grep-mode
+     occur-mode))
+  (popper-window-height 0.33)
+  :config
+  (popper-mode 1)
+  (popper-echo-mode 1))
 
 (use-package project
   :custom
