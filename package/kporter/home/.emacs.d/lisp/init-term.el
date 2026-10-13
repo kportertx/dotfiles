@@ -9,6 +9,24 @@
   :bind
   ("C-c t" . eat))
 
+(use-package equake
+  :ensure t
+  :after agent-shell
+  :bind
+  ("<f12>" . equake-invoke)
+  :custom
+  (equake-default-shell 'agent-shell)
+  (equake-available-shells '("agent-shell" "eshell" "vterm" "ansi-term" "term" "shell"))
+  :config
+  ;; equake--launch-shell is a hardcoded cond over eshell/vterm/rash/ansi-term/
+  ;; term/shell with no extension point, so agent-shell (not a real terminal --
+  ;; a comint-free chat buffer) needs a case added via advice rather than config.
+  (advice-add 'equake--launch-shell :before-until
+              (lambda (launchshell)
+                (when (eq launchshell 'agent-shell)
+                  (agent-shell-toggle)
+                  t))))
+
 (use-package eshell
   :after eat
   :custom
