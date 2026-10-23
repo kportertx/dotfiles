@@ -141,6 +141,16 @@
   :custom
   (agent-shell-attention-render-function #'agent-shell-attention-render-active)
   :config
+  ;; The mode-line indicator calls this on every redraw of every window, and the
+  ;; stock version enters each of the (hundreds of) buffers: ~14 ms per window,
+  ;; which made typing lag.  Read the major mode without switching buffers.
+  (defun my-agent-shell-attention-live-buffers ()
+    (seq-filter (lambda (buf)
+                  (provided-mode-derived-p
+                   (buffer-local-value 'major-mode buf) 'agent-shell-mode))
+                (buffer-list)))
+  (advice-add 'agent-shell-attention--live-agent-shell-buffers
+              :override #'my-agent-shell-attention-live-buffers)
   (agent-shell-attention-mode))
 
 ;; Requires: apt install socat

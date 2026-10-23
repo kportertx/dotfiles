@@ -123,5 +123,15 @@ top of an unselected, scrolled tree."
 ;; explicitly here.
 (load custom-file 'noerror)
 
+(defun my-compile-config ()
+  "Byte-compile, then native-compile (async), every .el in the lisp/ directory.
+Skips files whose .elc is already up to date.  init.el and early-init.el are
+left alone."
+  (interactive)
+  (let ((dir (locate-user-emacs-file "lisp")))
+    (byte-recompile-directory dir 0)
+    (when (native-comp-available-p)
+      (native-compile-async dir 'recursively))))
+
 (provide 'init-defaults)
 ;;; init-defaults.el ends here

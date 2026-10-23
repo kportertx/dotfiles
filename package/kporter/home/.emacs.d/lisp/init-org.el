@@ -124,6 +124,38 @@ heading at the enclosing heading's level, or is cleared if there is none."
         ((org-at-heading-p) (org-do-promote))
         (t (org-shifttab))))
 
+(defun my-org-star-dwim (n)
+  "Self-insert `*', with two exceptions at the start of a line's text.
+On a heading title, add a level.  On a list item, turn it into a heading at
+the enclosing heading's level."
+  (interactive "p")
+  (cond
+   ((/= n 1) (self-insert-command n))
+   ((looking-back "^\\*+ " (line-beginning-position))
+    (save-excursion (beginning-of-line) (insert "*")))
+   ((and (looking-back "^[ \t]*[-+] " (line-beginning-position))
+         (org-current-level)
+         (not (org-in-src-block-p)))
+    (let ((stars (make-string (org-current-level) ?*)))
+      (delete-region (line-beginning-position) (point))
+      (insert stars " ")))
+   (t (self-insert-command n))))
+
+(defun my-org-dash-dwim (n)
+  "Self-insert `-', except at the start of a heading title: make it a list item."
+  (interactive "p")
+  (if (and (= n 1) (looking-back "^\\*+ " (line-beginning-position)))
+      (progn (delete-region (line-beginning-position) (point))
+             (insert "- "))
+    (self-insert-command n)))
+
+(defun my-org-backspace-dwim (n)
+  "Backspace, except at the start of a level 2+ heading title: drop a level."
+  (interactive "p")
+  (if (and (= n 1) (looking-back "^\\*\\*+ " (line-beginning-position)))
+      (save-excursion (beginning-of-line) (delete-char 1))
+    (org-delete-backward-char n)))
+
 (defvar my-word-freq-stopwords
   (let ((h (make-hash-table :test 'equal)))
     (dolist (w (split-string
@@ -364,6 +396,10 @@ title.  RET on a row lists where it is mentioned.  TOP limits the rows
   ;; Collapse #+begin_ blocks on open; TAB on the header line expands one.
   (org-hide-block-startup t)
   (org-hide-emphasis-markers t)
+  ;; Show x_{1} as a subscript.  Only the braced form counts, so snake_case
+  ;; words stay plain.
+  (org-pretty-entities t)
+  (org-use-sub-superscripts '{})
   (org-agenda-inhibit-startup t)
   ;; Agenda takes over only the current window; q puts the layout back.
   (org-agenda-window-setup 'current-window)
@@ -416,6 +452,9 @@ title.  RET on a row lists where it is mentioned.  TOP limits the rows
         ("<C-return>" . org-return)
         ("TAB" . my-org-demote-dwim)
         ("<backtab>" . my-org-promote-dwim)
+        ("*" . my-org-star-dwim)
+        ("-" . my-org-dash-dwim)
+        ("DEL" . my-org-backspace-dwim)
         ("C-<tab>" . org-cycle)
         ("C-S-<tab>" . org-shifttab)
         ;; Jump history like code buffers; TAB/S-TAB cover promote/demote.
@@ -467,14 +506,26 @@ title.  RET on a row lists where it is mentioned.  TOP limits the rows
           buf))))
   (advice-add 'org-get-agenda-file-buffer :around #'my-org-get-agenda-file-buffer-quiet)
 
-  (defun my-org-agenda-activate-buffer-hooks ()
+  (defun my-org-agenda-activate-buffer-hooks (&rest _)
     (when my-org-agenda-quiet-buffer
       (setq my-org-agenda-quiet-buffer nil)
-      (run-mode-hooks 'org-mode-hook)))
-  (add-hook 'org-agenda-after-show-hook #'my-org-agenda-activate-buffer-hooks))
+      (run-mode-hooks 'org-mode-hook)
+      (run-hooks 'find-file-hook)))
+  (add-hook 'org-agenda-after-show-hook #'my-org-agenda-activate-buffer-hooks)
 
+  ;; Switching to such a buffer by any other route (consult-buffer, C-x b,
+  ;; a link) never runs org-agenda-after-show-hook, so also catch it up the
+  ;; moment its window becomes the selected one.
+  (defun my-org-agenda-activate-selected-buffer (&rest _)
+    (with-current-buffer (window-buffer (selected-window))
+      (my-org-agenda-activate-buffer-hooks)))
+  (add-hook 'window-buffer-change-functions #'my-org-agenda-activate-selected-buffer)
+  (add-hook 'window-selection-change-functions #'my-org-agenda-activate-selected-buffer))
+
+;; Loaded here, not inside the form below: when org-agenda is already loaded the
+;; body runs at once, and the macro must exist before the form is expanded.
+(require 'transient)
 (with-eval-after-load 'org-agenda
-  (require 'transient)
   (transient-define-prefix my-org-agenda-transient ()
     "Transient menu for org-agenda actions."
     [["Status"
@@ -519,6 +570,11 @@ title.  RET on a row lists where it is mentioned.  TOP limits the rows
      (?B . warning)
      (?C . success)
      (?D . shadow)))
+  ;; Same glyphs as the defaults, 30% larger so the box reads at a glance.
+  (org-modern-checkbox
+   '((?X . #("☑" 0 1 (face (:height 1.3))))
+     (?- . #("□–" 0 2 (composition ((2)) face (:height 1.3))))
+     (?\s . #("□" 0 1 (face (:height 1.3))))))
   :hook
   (org-mode . org-modern-mode)
   (org-agenda-finalize . org-modern-agenda)
@@ -662,6 +718,19 @@ title.  RET on a row lists where it is mentioned.  TOP limits the rows
       (with-demoted-errors "org-roam idle sync: %S"
         (org-roam-db-sync))))
   (run-with-idle-timer 300 t #'my-org-roam-idle-sync)
+
+  ;; Commit and push the whole notes repo (new and deleted files included, which
+  ;; per-buffer git-auto-commit-mode never sees) every 10 minutes.
+  (defvar my-org-roam-autocommit-process nil)
+  (defun my-org-roam-autocommit ()
+    (unless (process-live-p my-org-roam-autocommit-process)
+      (setq my-org-roam-autocommit-process
+            (make-process :name "roam-autocommit"
+                          :buffer (get-buffer-create " *roam-autocommit*")
+                          :command (list (expand-file-name "~/.local/bin/roam-autocommit"))
+                          :noquery t))))
+  (defvar my-org-roam-autocommit-timer
+    (run-with-timer 600 600 #'my-org-roam-autocommit))
 
   (defun my-org-roam-backlink-visit (bl)
     (let ((node (org-roam-backlink-source-node bl)))

@@ -1080,6 +1080,19 @@ Marquees the label text if it would overflow the panel width."
   ("M-7" . winum-select-window-7)
   ("M-8" . winum-select-window-8))
 
+(use-package ace-window
+  ;; Pick a window by label; with only two windows it just switches.
+  :ensure t
+  :bind
+  ("C-x o" . ace-window)
+  :custom
+  (aw-scope 'frame)
+  (aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l))
+  :config
+  ;; Resize on ace-window jumps too, as with winum.
+  (with-eval-after-load 'golden-ratio
+    (add-to-list 'golden-ratio-extra-commands 'ace-window)))
+
 (winner-mode 1)
 
 ;;;;; Useful to switch between window / file layouts.
